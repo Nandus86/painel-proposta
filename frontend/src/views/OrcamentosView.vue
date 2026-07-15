@@ -5,7 +5,20 @@
         <h2 class="m-0">Orcamentos Comerciais</h2>
         <p class="text-muted">Gerencie e acompanhe seus orçamentos</p>
       </div>
-      <Button label="Nova Orcamento" icon="pi pi-plus" class="shadow-glow" @click="createNew" />
+      <div class="header-actions">
+        <Button label="Novo Orçamento" icon="pi pi-plus" class="shadow-glow" @click="handleNovoClick" :loading="checkLoading" />
+        <Popover ref="reqPopover">
+          <div class="p-3" style="max-width: 300px">
+            <h3 class="text-sm font-bold mb-2"><i class="pi pi-exclamation-triangle text-orange-500 mr-2"></i>Ação Necessária</h3>
+            <p class="text-sm mb-3 text-color-secondary">Para criar um orçamento, você precisa antes:</p>
+            <ul class="pl-3 m-0 text-sm mb-3">
+              <li v-if="!checks.clientes" class="text-red-500 font-medium mb-1">Cadastrar pelo menos 1 Cliente</li>
+              <li v-if="!checks.categorias" class="text-red-500 font-medium mb-1">Cadastrar pelo menos 1 Categoria</li>
+              <li v-if="!checks.servicos" class="text-red-500 font-medium">Cadastrar pelo menos 1 Produto/Serviço</li>
+            </ul>
+          </div>
+        </Popover>
+      </div>
     </div>
 
     <div class="table-card glass">
@@ -94,6 +107,7 @@ import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Tag from 'primevue/tag';
 import Dialog from 'primevue/dialog';
+import Popover from 'primevue/popover';
 import InputText from 'primevue/inputtext';
 import api from '@/services/api';
 
@@ -107,6 +121,39 @@ const filters = ref({
   search: '',
   status: null
 });
+const checks = ref({
+  clientes: false,
+  categorias: false,
+  servicos: false
+});
+const checkLoading = ref(false);
+const reqPopover = ref(null);
+
+async function checkRequirements() {
+  checkLoading.value = true;
+  try {
+    const [cRes, catRes, sRes] = await Promise.all([
+      api.get('/api/clientes', { params: { limit: 1 } }),
+      api.get('/api/categorias', { params: { limit: 1 } }),
+      api.get('/api/servicos', { params: { limit: 1 } })
+    ]);
+    checks.value.clientes = cRes.data.total > 0;
+    checks.value.categorias = catRes.data.total > 0;
+    checks.value.servicos = sRes.data.total > 0;
+  } catch (e) {
+    console.error('Erro ao verificar requisitos:', e);
+  } finally {
+    checkLoading.value = false;
+  }
+}
+
+const handleNovoClick = (event) => {
+  if (!checks.value.clientes || !checks.value.categorias || !checks.value.servicos) {
+    reqPopover.value.toggle(event);
+  } else {
+    createNew();
+  }
+};
 
 const fetchOrcamentos = async () => {
   loading.value = true;
@@ -188,6 +235,7 @@ const formatDate = (dateString) => {
 
 onMounted(() => {
   fetchOrcamentos();
+  checkRequirements();
 });
 </script>
 

@@ -5,7 +5,19 @@
         <h2>Serviços e Produtos</h2>
         <p class="page-desc">Gerencie o catálogo para inclusão nas propostas</p>
       </div>
-      <Button label="Novo Item" icon="pi pi-plus" @click="openDialog()" />
+      <div class="header-actions">
+        <Button label="Novo Item" icon="pi pi-plus" @click="handleNovoClick" />
+        <Popover ref="reqPopover">
+          <div class="p-3" style="max-width: 300px">
+            <h3 class="text-sm font-bold mb-2"><i class="pi pi-exclamation-triangle text-orange-500 mr-2"></i>Ação Necessária</h3>
+            <p class="text-sm mb-3 text-color-secondary">Para criar um item, você precisa antes:</p>
+            <ul class="pl-3 m-0 text-sm mb-3">
+              <li class="text-red-500 font-medium">Cadastrar pelo menos 1 Categoria</li>
+            </ul>
+            <Button label="Ir para Categorias" size="small" outlined class="w-full" @click="$router.push('/categorias')" />
+          </div>
+        </Popover>
+      </div>
     </div>
 
     <!-- Filters & Search -->
@@ -171,6 +183,7 @@ import Button from 'primevue/button'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Dialog from 'primevue/dialog'
+import Popover from 'primevue/popover'
 import api from '../services/api'
 
 const toast = useToast()
@@ -187,6 +200,15 @@ const skip = ref(0)
 const limit = 20
 const dialogVisible = ref(false)
 const editingServico = ref(null)
+const reqPopover = ref(null)
+
+function handleNovoClick(event) {
+  if (categorias.value.length === 0) {
+    reqPopover.value.toggle(event)
+  } else {
+    openDialog()
+  }
+}
 
 const tiposOptions = [
   { label: 'Serviço', value: 'servico' },
