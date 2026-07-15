@@ -43,6 +43,9 @@ services:
       - "80:80"
     depends_on:
       - backend
+    environment:
+      - VITE_API_URL=/
+      - VITE_BASE_DOMAIN=painelproposta.com
 
 volumes:
   pgdata:

@@ -7,6 +7,7 @@ from app.models.orcamento import Orcamento, StatusOrcamento
 from app.models.proposta import Proposta, StatusProposta
 from app.models.modelo_proposta import ModeloProposta
 from app.models.sistema_config import SistemaConfig
+from app.models.log_admin import LogAdmin
 
 __all__ = [
     "Empresa", 
@@ -20,5 +21,6 @@ __all__ = [
     "Proposta", 
     "StatusProposta",
     "ModeloProposta",
-    "SistemaConfig"
+    "SistemaConfig",
+    "LogAdmin"
 ]

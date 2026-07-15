@@ -13,6 +13,8 @@
     "@primevue/themes": "^4.5.4",
     "axios": "^1.16.0",
     "chart.js": "^4.5.1",
+    "html2canvas": "^1.4.1",
+    "liquid-gl": "^1.0.6",
     "marked": "^18.0.5",
     "pinia": "^3.0.4",
     "primeflex": "^4.0.0",

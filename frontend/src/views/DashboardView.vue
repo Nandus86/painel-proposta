@@ -1,6 +1,5 @@
 <template>
   <div class="dashboard fade-in">
-    <!-- Filters / Top Actions -->
     <div class="dashboard-filters">
       <div class="filter-group"></div>
       <div class="filter-actions">
@@ -15,7 +14,6 @@
       </div>
     </div>
 
-    <!-- Stats Grid (6 cards) -->
     <div class="stats-grid">
       <div class="stat-card">
         <div class="card-header">
@@ -72,7 +70,6 @@
       </div>
     </div>
 
-    <!-- Recent Activity -->
     <div class="recent-activity">
       <div class="activity-header">
         <h3>Atividade recente</h3>
@@ -127,7 +124,6 @@ onMounted(() => {
   padding-bottom: 2rem;
 }
 
-/* Filters */
 .dashboard-filters {
   display: flex;
   justify-content: space-between;
@@ -163,7 +159,6 @@ onMounted(() => {
   cursor: pointer;
 }
 
-/* Stats Grid */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -178,13 +173,19 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   transition: all var(--transition-fast);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 .stat-card:hover {
   background: var(--bg-card-hover);
   border-color: var(--border-color-hover);
+  border-color: var(--primary-400);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-glow-primary);
 }
 
 .card-header {
@@ -216,12 +217,16 @@ onMounted(() => {
   color: var(--text-muted);
 }
 
-/* Recent Activity */
 .recent-activity {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-lg);
   margin-top: 1rem;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 .activity-header {

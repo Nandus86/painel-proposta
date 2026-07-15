@@ -1,5 +1,7 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import csv
+import io
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
@@ -208,3 +210,60 @@ async def delete_cliente(
 
     await db.delete(cliente)
     await db.flush()
+
+
+@router.post("/import/csv")
+async def import_clientes_csv(
+    file: UploadFile = File(...),
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="O arquivo deve ser um CSV")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(text))
+    if not reader.fieldnames:
+        raise HTTPException(status_code=400, detail="CSV sem cabeçalho")
+
+    importados = 0
+    erros = []
+
+    for row_num, row in enumerate(reader, start=2):
+        razao_social = row.get("razao_social") or row.get("nome") or row.get("Nome") or ""
+        if not razao_social or not razao_social.strip():
+            erros.append(f"Linha {row_num}: razão social/nome obrigatório")
+            continue
+
+        cliente = Cliente(
+            empresa_id=current_user.empresa_id,
+            razao_social=razao_social.strip(),
+            nome_fantasia=(row.get("nome_fantasia") or row.get("fantasia") or "").strip() or None,
+            cnpj=(row.get("cnpj") or row.get("CNPJ") or "").strip() or None,
+            cpf=(row.get("cpf") or row.get("CPF") or "").strip() or None,
+            email=(row.get("email") or row.get("Email") or "").strip() or None,
+            telefone=(row.get("telefone") or row.get("fone") or row.get("Telefone") or "").strip() or None,
+            contato_nome=(row.get("contato") or row.get("contato_nome") or "").strip() or None,
+            contato_cargo=(row.get("cargo") or row.get("contato_cargo") or "").strip() or None,
+            endereco=(row.get("endereco") or "").strip() or None,
+            cidade=(row.get("cidade") or "").strip() or None,
+            estado=(row.get("estado") or row.get("uf") or "").strip() or None,
+            cep=(row.get("cep") or row.get("CEP") or "").strip() or None,
+            observacoes=(row.get("observacoes") or "").strip() or None,
+        )
+        db.add(cliente)
+        importados += 1
+
+    await db.flush()
+
+    return {
+        "ok": True,
+        "importados": importados,
+        "erros": erros,
+        "total_linhas": row_num - 1 if reader.line_num else 0,
+    }

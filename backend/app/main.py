@@ -2,12 +2,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import auth, empresas, usuarios, clientes, categorias, servicos, propostas, ai, modelos, public, dashboard, orcamentos, admin_config
+from app.routers import auth, empresas, usuarios, clientes, categorias, servicos, propostas, ai, modelos, public, dashboard, orcamentos, admin_config, superadmin
 from app.models import Orcamento
 from fastapi.staticfiles import StaticFiles
 import os
 
-# Create uploads directory if it doesn't exist
 os.makedirs("uploads/logos", exist_ok=True)
 
 from fastapi.exceptions import RequestValidationError
@@ -16,8 +15,11 @@ from fastapi import Request
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application startup and shutdown events."""
     print(f"[{settings.APP_NAME}] v{settings.APP_VERSION} starting...")
+    from app.database import AsyncSessionLocal
+    from app.core.middleware import DomainResolutionMiddleware
+    domain_middleware = DomainResolutionMiddleware(AsyncSessionLocal)
+    app.add_middleware(type(domain_middleware), dispatch=domain_middleware.__call__)
     yield
     print(f"[{settings.APP_NAME}] shutting down...")
 
@@ -38,7 +40,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={"detail": exc.errors()},
     )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -62,6 +63,7 @@ app.include_router(public.orcamento_router)
 app.include_router(dashboard.router)
 app.include_router(orcamentos.router)
 app.include_router(admin_config.router)
+app.include_router(superadmin.router)
 
 # Mount Static Files
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

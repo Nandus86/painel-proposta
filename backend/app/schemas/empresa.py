@@ -79,6 +79,17 @@ class EmpresaAdminUpdate(BaseModel):
     ativo: Optional[bool] = None
 
 
+class DominioSetup(BaseModel):
+    subdominio: Optional[str] = None
+    dominio_personalizado: Optional[str] = None
+
+
+class DominioVerifyResponse(BaseModel):
+    valido: bool
+    detalhes: str
+    registros_esperados: Optional[list[dict]] = None
+
+
 class EmpresaResponse(EmpresaBase):
     id: uuid.UUID
     logo_url: Optional[str] = None

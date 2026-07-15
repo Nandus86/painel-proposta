@@ -10,6 +10,30 @@
     </div>
 
     <div class="topbar-right">
+      <div class="notification-bell" @click="notificationsStore.togglePanel()">
+        <i class="pi pi-bell"></i>
+        <span v-if="notificationsStore.unreadCount > 0" class="notification-badge">{{ notificationsStore.unreadCount }}</span>
+      </div>
+      <div v-if="notificationsStore.showPanel" class="notification-panel glass" @click.stop>
+        <div class="notif-header">
+          <span>Notificações</span>
+          <button class="notif-clear" @click="notificationsStore.markAllRead()">Marcar todas lidas</button>
+        </div>
+        <div class="notif-list" v-if="notificationsStore.notifications.length > 0">
+          <div
+            v-for="n in notificationsStore.notifications"
+            :key="n.id"
+            class="notif-item"
+            :class="{ unread: !n.read }"
+            @click="notificationsStore.markRead(n.id)"
+          >
+            <div class="notif-title">{{ n.title }}</div>
+            <div class="notif-msg">{{ n.message }}</div>
+            <div class="notif-time">{{ formatTime(n.createdAt) }}</div>
+          </div>
+        </div>
+        <div v-else class="notif-empty">Nenhuma notificação</div>
+      </div>
       <button class="theme-toggle-btn" @click="handleThemeToggle" :title="isDark ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'">
         <i :class="isDark ? 'pi pi-moon' : 'pi pi-sun'"></i>
       </button>
@@ -30,6 +54,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
+import { useNotificationsStore } from '../../stores/notifications'
 import { isDarkMode, toggleDarkTheme } from '../../utils/theme'
 
 const props = defineProps({
@@ -41,8 +66,19 @@ defineEmits(['toggleSidebar'])
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const notificationsStore = useNotificationsStore()
 const showUserMenu = ref(false)
 const isDark = ref(isDarkMode())
+
+function formatTime(dateStr) {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diff = now - date
+  if (diff < 60000) return 'Agora'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}min atrás`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h atrás`
+  return date.toLocaleDateString('pt-BR')
+}
 
 function handleThemeToggle() {
   isDark.value = toggleDarkTheme()
@@ -217,6 +253,115 @@ html.dark .theme-toggle-btn:hover {
 
 .logout-btn i {
   font-size: 0.9rem;
+}
+
+.notification-bell {
+  position: relative;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+}
+
+.notification-bell:hover {
+  background: var(--surface-100);
+  color: var(--primary-500);
+}
+
+.notification-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--accent-red);
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 340px;
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: var(--border-radius-lg);
+  z-index: 200;
+  margin-top: 0.5rem;
+}
+
+.notif-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.notif-clear {
+  background: none;
+  border: none;
+  color: var(--primary-400);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.notif-list {
+  padding: 0.25rem 0;
+}
+
+.notif-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  transition: background var(--transition-fast);
+}
+
+.notif-item:hover {
+  background: var(--surface-100);
+}
+
+.notif-item.unread {
+  background: rgba(var(--primary-rgb), 0.04);
+}
+
+.notif-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.notif-msg {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.15rem;
+}
+
+.notif-time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.notif-empty {
+  padding: 2rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 @media (max-width: 768px) {

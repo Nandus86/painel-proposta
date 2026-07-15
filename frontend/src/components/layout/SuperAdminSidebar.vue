@@ -2,7 +2,7 @@
   <aside class="sidebar" :class="{ collapsed }">
     <!-- Logo -->
     <div class="sidebar-header">
-      <div class="logo" @click="$router.push('/admin/empresas')">
+      <div class="logo" @click="$router.push('/admin')">
         <div class="logo-icon admin-icon">
           <i class="pi pi-globe"></i>
         </div>
@@ -68,6 +68,7 @@ const route = useRoute()
 
 const navItems = computed(() => {
   return [
+    { path: '/admin', icon: 'pi pi-chart-bar', label: 'Dashboard' },
     { path: '/admin/empresas', icon: 'pi pi-building', label: 'Gestão de Empresas' },
     { path: '/admin/configuracoes', icon: 'pi pi-cog', label: 'Configurações Globais' },
   ]

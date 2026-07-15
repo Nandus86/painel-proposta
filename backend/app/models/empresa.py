@@ -83,3 +83,4 @@ class Empresa(Base):
     categorias = relationship("Categoria", back_populates="empresa", lazy="selectin")
     servicos = relationship("Servico", back_populates="empresa", lazy="selectin")
     propostas = relationship("Proposta", back_populates="empresa", lazy="selectin")
+    logs_admin = relationship("LogAdmin", back_populates="empresa", lazy="selectin", cascade="all, delete-orphan")

@@ -154,13 +154,22 @@
                 <InputText v-model="empresa.cor_marca" :disabled="!authStore.isAdmin" placeholder="#f39c12" />
               </div>
             </div>
-            <div class="field">
-              <label>Subdomínio (.dekto.com)</label>
-              <InputText v-model="empresa.subdominio" :disabled="!authStore.isAdmin" />
+            <div class="field span-2">
+              <label>Subdomínio</label>
+              <div class="domain-input-group">
+                <InputText v-model="empresa.subdominio" :disabled="!authStore.isAdmin" placeholder="minhaempresa" class="domain-input" />
+                <span class="domain-suffix">.painelproposta.com</span>
+              </div>
+              <small class="helper-text">URL de acesso: https://{{ empresa.subdominio || 'minhaempresa' }}.painelproposta.com</small>
             </div>
-            <div class="field">
+            <div class="field span-2">
               <label>Domínio Personalizado</label>
-              <InputText v-model="empresa.dominio_personalizado" :disabled="!authStore.isAdmin" placeholder="ex: propostas.minhaempresa.com" />
+              <div class="domain-input-group">
+                <InputText v-model="empresa.dominio_personalizado" :disabled="!authStore.isAdmin || !dominioProprioPermitido" placeholder="ex: propostas.minhaempresa.com" class="domain-input" />
+                <Button v-if="!dominioProprioPermitido && authStore.isAdmin" label="Premium" icon="pi pi-lock" severity="secondary" text size="small" class="upgrade-hint" />
+              </div>
+              <small v-if="!dominioProprioPermitido" class="helper-text warn">Domínio personalizado disponível nos planos Pro e Premium.</small>
+              <small v-else class="helper-text">Configure um CNAME no seu DNS apontando para painelproposta.com</small>
             </div>
           </div>
         </div>
@@ -223,7 +232,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from 'primevue/usetoast'
 import InputText from 'primevue/inputtext'
@@ -239,6 +248,11 @@ const empresa = ref(null)
 const saving = ref(false)
 const uploadingLogo = ref(false)
 const logoInput = ref(null)
+
+const dominioProprioPermitido = computed(() => {
+  if (!empresa.value) return false
+  return ['pro', 'premium'].includes(empresa.value.plano)
+})
 
 function backendUrl(path) {
   if (!path) return ''
@@ -285,12 +299,20 @@ async function handleSave() {
   try {
     const { data } = await api.put('/api/empresas/me', empresa.value)
     empresa.value = data
+
+    if (empresa.value.subdominio || empresa.value.dominio_personalizado) {
+      await api.put('/api/empresas/me/dominio', {
+        subdominio: empresa.value.subdominio,
+        dominio_personalizado: empresa.value.dominio_personalizado
+      })
+    }
+
     toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Empresa atualizada', life: 3000 })
-    
-    // Refresh user to instantly apply theme changes if cor_marca changed
+
     await authStore.fetchUser()
   } catch (e) {
-    toast.add({ severity: 'error', summary: 'Erro', detail: 'Erro ao salvar', life: 3000 })
+    const msg = e.response?.data?.detail || 'Erro ao salvar'
+    toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 5000 })
   } finally {
     saving.value = false
   }
@@ -431,5 +453,47 @@ async function handleSave() {
 .upload-controls {
   display: flex;
   align-items: center;
+}
+
+.domain-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.domain-input {
+  flex: 1;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.domain-suffix {
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  height: 40px;
+  background: var(--surface-200);
+  border: 1px solid var(--border-color);
+  border-left: none;
+  border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.helper-text {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
+}
+
+.helper-text.warn {
+  color: var(--warning-500);
+}
+
+.upgrade-hint {
+  margin-left: 0.5rem;
+  white-space: nowrap;
 }
 </style>

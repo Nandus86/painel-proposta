@@ -121,6 +121,11 @@ const routes = [
     meta: { requiresAuth: true, requiresSuperuser: true },
     children: [
       {
+        path: '',
+        name: 'SuperAdminDashboard',
+        component: () => import('../views/admin/SuperAdminDashboardView.vue'),
+      },
+      {
         path: 'empresas',
         name: 'SuperAdminEmpresas',
         component: () => import('../views/admin/SuperAdminEmpresasView.vue'),

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Painel Proposta"
     APP_VERSION: str = "1.0.0"
     CORS_ORIGINS: str = "http://localhost:5173"
+    BASE_DOMAIN: str = "painelproposta.com"
 
     @property
     def cors_origins_list(self) -> list[str]:

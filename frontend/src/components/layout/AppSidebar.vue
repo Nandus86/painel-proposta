@@ -71,7 +71,8 @@ const navItems = computed(() => {
     { path: '/configuracoes', icon: 'pi pi-cog', label: 'Configurações' },
   ]
   if (authStore.isSuperuser) {
-    items.push({ path: '/admin/empresas', icon: 'pi pi-globe', label: 'Admin Global' })
+    items.push({ path: '/admin', icon: 'pi pi-chart-bar', label: 'Admin Dashboard' })
+    items.push({ path: '/admin/empresas', icon: 'pi pi-globe', label: 'Admin Empresas' })
   }
   return items
 })
