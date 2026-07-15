@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -342,3 +342,62 @@ async def preview_orcamento_pdf(
     except Exception as e:
         print(f"Erro ao gerar Preview do PDF: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar Preview: {str(e)}")
+
+@router.post("/{id}/enviar-email")
+async def enviar_orcamento_email(
+    id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user),
+):
+    from fastapi.concurrency import run_in_threadpool
+    from app.services.email import send_email_sync
+
+    stmt = select(Orcamento).where(
+        Orcamento.id == id,
+        Orcamento.empresa_id == current_user.empresa_id
+    ).options(
+        selectinload(Orcamento.cliente),
+        selectinload(Orcamento.empresa)
+    )
+    result = await db.execute(stmt)
+    orcamento = result.scalar_one_or_none()
+
+    if not orcamento:
+        raise HTTPException(status_code=404, detail="Orcamento não encontrado")
+    if not orcamento.cliente or not orcamento.cliente.email:
+        raise HTTPException(status_code=400, detail="Cliente não possui e-mail cadastrado")
+    if not orcamento.empresa.smtp_host:
+        raise HTTPException(status_code=400, detail="Configuração de SMTP da empresa incompleta. Verifique as configurações globais.")
+
+    origin = request.headers.get("origin", "https://seu-dominio.com")
+    link = f"{origin}/o/{orcamento.token_publico}"
+    
+    subject = f"Orçamento Comercial #{orcamento.numero} - {orcamento.empresa.razao_social}"
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <h2 style="color: #4f46e5;">Olá, {orcamento.cliente.contato_nome or orcamento.cliente.razao_social}!</h2>
+        <p>A empresa <strong>{orcamento.empresa.razao_social}</strong> enviou um orçamento comercial para você.</p>
+        <p><strong>Título:</strong> {orcamento.titulo}</p>
+        <div style="margin: 30px 0; text-align: center;">
+            <a href="{link}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Visualizar Orçamento Completo</a>
+        </div>
+        <p>Se tiver qualquer dúvida, basta responder a este e-mail.</p>
+        <hr style="border: 0; border-top: 1px solid #eaeaea; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #888; text-align: center;">Enviado via Painel Proposta</p>
+    </div>
+    """
+
+    try:
+        await run_in_threadpool(
+            send_email_sync,
+            empresa=orcamento.empresa,
+            to_email=orcamento.cliente.email,
+            subject=subject,
+            html_content=html_content
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao enviar e-mail: {str(e)}")
+
+    return {"ok": True, "message": "E-mail enviado com sucesso"}
+

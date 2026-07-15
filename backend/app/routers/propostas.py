@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -342,3 +342,62 @@ async def preview_proposta_pdf(
     except Exception as e:
         print(f"Erro ao gerar Preview do PDF: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar Preview: {str(e)}")
+
+@router.post("/{id}/enviar-email")
+async def enviar_proposta_email(
+    id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user),
+):
+    from fastapi.concurrency import run_in_threadpool
+    from app.services.email import send_email_sync
+
+    stmt = select(Proposta).where(
+        Proposta.id == id,
+        Proposta.empresa_id == current_user.empresa_id
+    ).options(
+        selectinload(Proposta.cliente),
+        selectinload(Proposta.empresa)
+    )
+    result = await db.execute(stmt)
+    proposta = result.scalar_one_or_none()
+
+    if not proposta:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada")
+    if not proposta.cliente or not proposta.cliente.email:
+        raise HTTPException(status_code=400, detail="Cliente não possui e-mail cadastrado")
+    if not proposta.empresa.smtp_host:
+        raise HTTPException(status_code=400, detail="Configuração de SMTP da empresa incompleta. Verifique as configurações globais.")
+
+    origin = request.headers.get("origin", "https://seu-dominio.com")
+    link = f"{origin}/p/{proposta.token_publico}"
+    
+    subject = f"Proposta Comercial #{proposta.numero} - {proposta.empresa.razao_social}"
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <h2 style="color: #4f46e5;">Olá, {proposta.cliente.contato_nome or proposta.cliente.razao_social}!</h2>
+        <p>A empresa <strong>{proposta.empresa.razao_social}</strong> enviou uma proposta comercial para você.</p>
+        <p><strong>Título:</strong> {proposta.titulo}</p>
+        <div style="margin: 30px 0; text-align: center;">
+            <a href="{link}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Visualizar Proposta Completa</a>
+        </div>
+        <p>Se tiver qualquer dúvida, basta responder a este e-mail.</p>
+        <hr style="border: 0; border-top: 1px solid #eaeaea; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #888; text-align: center;">Enviado via Painel Proposta</p>
+    </div>
+    """
+
+    try:
+        await run_in_threadpool(
+            send_email_sync,
+            empresa=proposta.empresa,
+            to_email=proposta.cliente.email,
+            subject=subject,
+            html_content=html_content
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao enviar e-mail: {str(e)}")
+
+    return {"ok": True, "message": "E-mail enviado com sucesso"}
+

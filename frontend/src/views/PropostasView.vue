@@ -208,8 +208,16 @@ const sendProposta = (proposta) => {
   toast.add({ severity: 'success', summary: 'Enviado', detail: 'Proposta enviada para o cliente!', life: 2000 });
 };
 
-const sendEmail = (proposta) => {
-  toast.add({ severity: 'info', summary: 'E-mail', detail: 'O envio via e-mail será configurado em breve.', life: 3000 });
+const sendEmail = async (proposta) => {
+  try {
+    toast.add({ severity: 'info', summary: 'Enviando...', detail: 'Processando o envio do e-mail.', life: 2000 });
+    await api.post(`/api/propostas/${proposta.id}/enviar-email`);
+    toast.add({ severity: 'success', summary: 'E-mail', detail: 'E-mail enviado com sucesso para o cliente.', life: 3000 });
+  } catch (error) {
+    console.error('Erro ao enviar e-mail:', error);
+    const msg = error.response?.data?.detail || 'Falha ao enviar o e-mail.';
+    toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 });
+  }
 };
 
 const sendWhatsapp = (proposta) => {
