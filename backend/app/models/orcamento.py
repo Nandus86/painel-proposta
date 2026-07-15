@@ -35,7 +35,7 @@ class Orcamento(Base):
     numero: Mapped[int] = mapped_column(Integer, autoincrement=True)
     titulo: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[StatusOrcamento] = mapped_column(
-        Enum(StatusOrcamento), default=StatusOrcamento.RASCUNHO, nullable=False
+        Enum(StatusOrcamento, values_callable=lambda obj: [e.value for e in obj]), default=StatusOrcamento.RASCUNHO, nullable=False
     )
     
     data_emissao: Mapped[datetime] = mapped_column(

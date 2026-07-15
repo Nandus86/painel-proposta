@@ -29,7 +29,7 @@ class Usuario(Base):
     cargo: Mapped[Optional[str]] = mapped_column(String(100))
     telefone: Mapped[Optional[str]] = mapped_column(String(20))
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole), default=UserRole.VENDEDOR, nullable=False
+        Enum(UserRole, values_callable=lambda obj: [e.value for e in obj]), default=UserRole.VENDEDOR, nullable=False
     )
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)

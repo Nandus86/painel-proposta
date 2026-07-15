@@ -36,7 +36,7 @@ class Proposta(Base):
     numero: Mapped[int] = mapped_column(Integer, autoincrement=True)
     titulo: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[StatusProposta] = mapped_column(
-        Enum(StatusProposta), default=StatusProposta.RASCUNHO, nullable=False
+        Enum(StatusProposta, values_callable=lambda obj: [e.value for e in obj]), default=StatusProposta.RASCUNHO, nullable=False
     )
     
     data_emissao: Mapped[datetime] = mapped_column(

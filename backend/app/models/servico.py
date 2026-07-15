@@ -28,7 +28,7 @@ class Servico(Base):
     )
     
     tipo: Mapped[TipoServico] = mapped_column(
-        Enum(TipoServico), default=TipoServico.SERVICO, nullable=False
+        Enum(TipoServico, values_callable=lambda obj: [e.value for e in obj]), default=TipoServico.SERVICO, nullable=False
     )
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
     descricao_padrao: Mapped[Optional[str]] = mapped_column(Text)
