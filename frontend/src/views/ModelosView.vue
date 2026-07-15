@@ -3,12 +3,11 @@
     <div class="page-header">
       <div>
         <h2>Modelos de Proposta</h2>
-        <p class="page-desc">Gerencie os moldes de proposta e termos padrões para o preenchimento da IA</p>
+        <p class="page-desc">Gerencie os moldes de proposta com variáveis dinâmicas para preenchimento pela IA</p>
       </div>
       <Button label="Novo Modelo" icon="pi pi-plus" @click="openDialog()" />
     </div>
 
-    <!-- Table / List -->
     <div class="table-card glass mt-4">
       <DataTable
         :value="modelos"
@@ -37,7 +36,6 @@
             </div>
           </template>
         </Column>
-
         <template #empty>
           <div class="empty-table" v-if="!loading">
             <i class="pi pi-copy"></i>
@@ -48,71 +46,37 @@
       </DataTable>
     </div>
 
-    <!-- Form Dialog -->
-    <Dialog v-model:visible="dialogVisible" :header="editingModelo ? 'Editar Modelo' : 'Novo Modelo'" modal :style="{ width: '800px' }">
+    <Dialog v-model:visible="dialogVisible" :header="editingModelo ? 'Editar Modelo' : 'Novo Modelo'" modal :style="{ width: '960px' }">
       <form @submit.prevent="handleSave" class="dialog-form">
         <div class="field">
           <label for="titulo">Título do Modelo *</label>
           <InputText id="titulo" v-model="form.titulo" required placeholder="Ex: Modelo de Serviços de TI" autofocus />
         </div>
 
-        <div class="grid">
-          <!-- Editor Column -->
-          <div class="col-12 lg:col-8 field">
-            <label for="conteudo">Conteúdo do Modelo *</label>
-            <Textarea
-              id="conteudo"
-              v-model="form.conteudo"
-              required
-              rows="12"
-              class="w-full editor-textarea"
-              placeholder="Digite a estrutura da sua proposta. Use as tags explicadas ao lado para dados dinâmicos..."
-            />
-          </div>
-          
-          <!-- Helper Variables Column -->
-          <div class="col-12 lg:col-4 helper-column">
-            <div class="helper-box">
-              <h4>Variáveis Dinâmicas</h4>
-              <p>Insira essas tags exatas no seu texto. A IA as substituirá automaticamente pelos dados do formulário:</p>
-              
-              <ul class="variables-list">
-                <li>
-                  <code v-pre>{{cliente}}</code>
-                  <span>Razão social / Nome do cliente</span>
-                </li>
-                <li>
-                  <code v-pre>{{valor_total}}</code>
-                  <span>Valor final da proposta</span>
-                </li>
-                <li>
-                  <code v-pre>{{itens}}</code>
-                  <span>Listagem descritiva de itens cotações</span>
-                </li>
-                <li>
-                  <code v-pre>{{empresa}}</code>
-                  <span>Nome fantasia da sua empresa</span>
-                </li>
-                <li>
-                  <code v-pre>{{telefone}}</code>
-                  <span>Telefone da sua empresa</span>
-                </li>
-                <li>
-                  <code v-pre>{{email}}</code>
-                  <span>E-mail da sua empresa</span>
-                </li>
-              </ul>
-
-              <div class="helper-tip mt-3">
-                <i class="pi pi-info-circle mr-1"></i>
-                Você também pode escrever termos jurídicos, escopos de serviço padrão e cronogramas fixos que a IA irá preservar.
-              </div>
+        <div class="editor-layout">
+          <div class="editor-main" @dragover.prevent @drop.prevent="onDrop">
+            <label>Conteúdo do Modelo *</label>
+            <div
+              ref="editorRef"
+              class="model-editor"
+              contenteditable="true"
+              @input="onEditorInput"
+              @paste="onPaste"
+              @keydown.enter.prevent="onEnter"
+              @keydown.backspace="onBackspace"
+            >
             </div>
+            <small class="helper-text">
+              Arraste variáveis da paleta lateral ou digite o texto do modelo. Variáveis são inseridas como blocos coloridos.
+            </small>
+          </div>
+          <div class="editor-sidebar">
+            <VariablePalette @insert-var="insertVariable" />
           </div>
         </div>
 
         <div class="dialog-actions">
-          <Button label="Cancelar" severity="secondary" outlined @click="dialogVisible = false" />
+          <Button label="Cancelar" severity="secondary" outlined @click="dialogVisible = false; cleanEditorState()" />
           <Button type="submit" :label="editingModelo ? 'Salvar' : 'Criar'" icon="pi pi-check" :loading="saving" class="save-btn" />
         </div>
       </form>
@@ -121,16 +85,28 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
-import Textarea from 'primevue/textarea'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Dialog from 'primevue/dialog'
+import VariablePalette from '../components/VariablePalette.vue'
 import api from '../services/api'
+
+const VAR_COLORS = {
+  cliente: '#3b82f6',
+  empresa: '#f39c12',
+  proposta: '#16a34a',
+  itens: '#8b5cf6',
+  vendedor: '#ec4899',
+  datas: '#06b6d4',
+  custom: '#a855f7',
+}
+
+const TAG_RE = /\{\{[a-z][a-z0-9_]*\}\}/g
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -140,11 +116,9 @@ const loading = ref(false)
 const saving = ref(false)
 const dialogVisible = ref(false)
 const editingModelo = ref(null)
+const editorRef = ref(null)
 
-const defaultForm = {
-  titulo: '',
-  conteudo: ''
-}
+const defaultForm = { titulo: '', conteudo: '' }
 const form = reactive({ ...defaultForm })
 
 async function fetchModelos() {
@@ -159,6 +133,150 @@ async function fetchModelos() {
   }
 }
 
+function markdownToHtml(text) {
+  if (!text) return ''
+  return text.replace(TAG_RE, (match) => {
+    const inner = match.slice(2, -2)
+    return `<span class="var-badge" contenteditable="false" data-tag="${match}" data-inner="${inner}" style="background:rgba(59,130,246,0.12);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);font-weight:600;border-radius:4px;padding:0 6px;margin:0 1px;font-family:monospace;font-size:0.85em;cursor:default;display:inline-block;white-space:nowrap;">${match}</span>`
+  })
+}
+
+function htmlToMarkdown() {
+  if (!editorRef.value) return ''
+  let html = editorRef.value.innerHTML
+
+  html = html.replace(/<span[^>]*data-tag="([^"]*)"[^>]*>.*?<\/span>/g, (_, tag) => tag)
+
+  html = html.replace(/<br\s*\/?>/gi, '\n')
+  html = html.replace(/<div>/gi, '').replace(/<\/div>/gi, '\n')
+  html = html.replace(/<\/p>/gi, '\n')
+  html = html.replace(/<[^>]*>/g, '')
+
+  return html.replace(/\n{3,}/g, '\n\n').trim()
+}
+
+function setEditorContent(markdown) {
+  if (!editorRef.value) return
+  editorRef.value.innerHTML = ''
+  const lines = markdown.split('\n')
+  lines.forEach((line, i) => {
+    const span = document.createElement('div')
+    span.innerHTML = markdownToHtml(line) || '<br>'
+    editorRef.value.appendChild(span)
+  })
+}
+
+function insertVariable(tag) {
+  if (!editorRef.value) return
+
+  const sel = window.getSelection()
+  let container = editorRef.value
+  let cursorNode = null
+  let cursorOffset = 0
+
+  if (sel.rangeCount > 0) {
+    const range = sel.getRangeAt(0)
+    if (editorRef.value.contains(range.commonAncestorContainer)) {
+      cursorNode = range.startContainer
+      cursorOffset = range.startOffset
+    }
+  }
+
+  if (!cursorNode || !editorRef.value.contains(cursorNode)) {
+    const lastChild = editorRef.value.lastChild
+    if (lastChild) {
+      const textNode = document.createTextNode(' ')
+      lastChild.appendChild(textNode)
+      const range = document.createRange()
+      range.setStart(textNode, 1)
+      range.collapse(true)
+      sel.removeAllRanges()
+      sel.addRange(range)
+      cursorNode = textNode
+      cursorOffset = 1
+    }
+  }
+
+  if (cursorNode && editorRef.value.contains(cursorNode)) {
+    const badgeDiv = document.createElement('span')
+    badgeDiv.innerHTML = markdownToHtml(tag)
+    const badge = badgeDiv.firstChild
+
+    const range = document.createRange()
+    range.setStart(cursorNode, cursorOffset)
+    range.collapse(true)
+
+    range.insertNode(badge)
+
+    const space = document.createTextNode(' ')
+    range.setStartAfter(badge)
+    range.insertNode(space)
+
+    range.setStartAfter(space)
+    range.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(range)
+  }
+}
+
+function onDrop(event) {
+  event.preventDefault()
+  const tag = event.dataTransfer.getData('text/plain')
+  if (tag && TAG_RE.test(tag)) {
+    editorRef.value.focus()
+
+    const x = event.clientX
+    const y = event.clientY
+    if (document.caretRangeFromPoint) {
+      const range = document.caretRangeFromPoint(x, y)
+      if (range) {
+        const sel = window.getSelection()
+        sel.removeAllRanges()
+        sel.addRange(range)
+      }
+    }
+
+    insertVariable(tag)
+  }
+}
+
+function onEditorInput() {
+  form.conteudo = htmlToMarkdown()
+}
+
+function onPaste(event) {
+  event.preventDefault()
+  const text = event.clipboardData.getData('text/plain')
+  document.execCommand('insertText', false, text)
+}
+
+function onEnter(event) {
+  event.preventDefault()
+  document.execCommand('insertLineBreak')
+}
+
+function onBackspace(event) {
+  const sel = window.getSelection()
+  if (sel.rangeCount === 0) return
+
+  const range = sel.getRangeAt(0)
+  if (range.collapsed) {
+    const node = range.startContainer
+    if (node.nodeType === 3 && range.startOffset === 0) {
+      const prev = node.previousSibling
+      if (prev && prev.classList && prev.classList.contains('var-badge')) {
+        event.preventDefault()
+        prev.remove()
+        onEditorInput()
+      }
+    }
+  }
+}
+
+function cleanEditorState() {
+  editorRef.value = null
+}
+
 function openDialog(item = null) {
   editingModelo.value = item
   if (item) {
@@ -168,19 +286,25 @@ function openDialog(item = null) {
     Object.assign(form, defaultForm)
   }
   dialogVisible.value = true
+  nextTick(() => {
+    if (editorRef.value) {
+      setEditorContent(form.conteudo)
+    }
+  })
 }
 
 async function handleSave() {
   saving.value = true
   try {
     if (editingModelo.value) {
-      await api.put(`/api/modelos/${editingModelo.value.id}`, form)
+      await api.put(`/api/modelos/${editingModelo.value.id}`, { ...form })
       toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Modelo de proposta atualizado', life: 3000 })
     } else {
-      await api.post('/api/modelos', form)
+      await api.post('/api/modelos', { ...form })
       toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Modelo de proposta cadastrado', life: 3000 })
     }
     dialogVisible.value = false
+    editorRef.value = null
     await fetchModelos()
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Erro', detail: 'Erro ao salvar modelo', life: 3000 })
@@ -210,7 +334,6 @@ function confirmDelete(item) {
 
 function cleanSnippet(val) {
   if (!val) return ''
-  // Strip code variables tags and return simple text summary
   return val.replace(/[{}]/g, '').substring(0, 120) + (val.length > 120 ? '...' : '')
 }
 
@@ -306,70 +429,59 @@ onMounted(fetchModelos)
   color: var(--text-secondary);
 }
 
-.editor-textarea {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.9rem;
-  line-height: 1.5;
+.editor-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1rem;
+  min-height: 320px;
 }
 
-.helper-column {
-  padding-left: 1rem;
-}
-
-.helper-box {
-  background: var(--surface-100);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: 1rem;
-}
-
-.helper-box h4 {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-}
-
-.helper-box p {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  line-height: 1.4;
-  margin-bottom: 0.75rem;
-}
-
-.variables-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.editor-main {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.variables-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.variables-list code {
-  font-family: 'Courier New', Courier, monospace;
-  font-weight: 700;
+.editor-main label {
   font-size: 0.8rem;
-  color: var(--primary-600);
-}
-
-.variables-list span {
-  font-size: 0.7rem;
+  font-weight: 600;
   color: var(--text-secondary);
 }
 
-.helper-tip {
+.model-editor {
+  flex: 1;
+  min-height: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  padding: 0.75rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.model-editor:focus {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+}
+
+.model-editor:empty::before {
+  content: 'Digite o conteúdo do modelo aqui...';
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.editor-sidebar {
+  display: flex;
+}
+
+.helper-text {
   font-size: 0.7rem;
   color: var(--text-muted);
-  line-height: 1.4;
-  display: flex;
-  align-items: flex-start;
 }
 
 .dialog-actions {

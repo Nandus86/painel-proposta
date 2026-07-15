@@ -8,6 +8,7 @@ from app.models.proposta import Proposta, StatusProposta
 from app.models.modelo_proposta import ModeloProposta
 from app.models.sistema_config import SistemaConfig
 from app.models.log_admin import LogAdmin
+from app.models.variavel_customizada import VariavelCustomizada
 
 __all__ = [
     "Empresa", 
@@ -22,5 +23,6 @@ __all__ = [
     "StatusProposta",
     "ModeloProposta",
     "SistemaConfig",
-    "LogAdmin"
+    "LogAdmin",
+    "VariavelCustomizada"
 ]

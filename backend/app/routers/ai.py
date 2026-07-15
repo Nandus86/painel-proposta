@@ -119,28 +119,36 @@ async def gerar_descricao_proposta(
 
     if modelo_texto:
         prompt = f"""
-        Você é um consultor comercial especialista de alto impacto. Sua tarefa é preencher e expandir um modelo/molde de proposta comercial seguindo o estilo, tom de voz e estrutura fornecidos abaixo.
-        
-        === MODELO DE PROPOSTA ===
+        Você é um consultor comercial especialista de alto impacto. Sua tarefa é **preencher um modelo de proposta existente** substituindo APENAS as variáveis marcadas com {{{{...}}}} e completando seções inteiramente vazias.
+
+        === REGRAS ESTRITAS DE PRESERVAÇÃO DO MODELO (PRIORIDADE MÁXIMA) ===
+        1. PRESERVE EXATAMENTE o texto original do modelo. NÃO reescreva, parafraseie, resuma ou altere nenhuma frase que já esteja escrita no modelo.
+        2. Apenas SUBSTITUA as variáveis ({{{{...}}}}) pelos valores reais fornecidos abaixo.
+        3. Se uma seção do modelo estiver completamente vazia (sem texto além de variáveis ou títulos), você PODE preencher com 1-2 frases complementares relevantes ao contexto. NUNCA mais que isso.
+        4. Se uma seção já tiver texto, MANTENHA-O 100% INTACTO, palavra por palavra.
+        5. Mantenha os mesmos títulos (##), mesma estrutura de seções, mesmas listas e parágrafos do modelo.
+        6. Mantenha o mesmo tom de voz, nível de formalidade e estilo do modelo original.
+        7. O resultado final deve ter NO MÍNIMO 90% de similaridade textual com o modelo original. A similaridade é medida caractere por caractere.
+        8. NÃO adicione novas seções, introduções, conclusões, saudações ou despedidas que não estejam no modelo.
+        9. NÃO gere tabelas de preços nem blocos de assinatura (isso é feito pelo sistema separadamente).
+        10. Retorne EXCLUSIVAMENTE o conteúdo final em Markdown, sem preâmbulos como "Aqui está a proposta:".
+        =============================================================
+
+        === MODELO DE PROPOSTA (PRESERVE ESTA ESTRUTURA) ===
         {modelo_texto}
-        =========================
-        
-        Substitua as variáveis dinâmicas (ex: {{{{cliente}}}}, {{{{valor_total}}}}, {{{{itens}}}}, etc.) e elabore o texto final com base nos seguintes dados reais da proposta atual:
-        - Título da Proposta: {data.titulo}
+        ====================================================
+
+        DADOS REAIS PARA SUBSTITUIR AS VARIÁVEIS:
+        - Cliente (Razão Social): {data.cliente_nome}
         - Empresa Emitente (Quem está propondo): {empresa_nome}
-        - Vendedor/Responsável pela Proposta: {vendedor_nome}
-        - Cliente/Prospect: {data.cliente_nome}
+        - Vendedor/Responsável: {vendedor_nome}
+        - Título da Proposta: {data.titulo}
         - Itens/Serviços e Cotações:
         {itens_str}
         - Valor Total da Proposta: R$ {valor_total:.2f}
         - Contexto/Instruções Adicionais do Usuário: {data.contexto or "Nenhum"}
-        
-        REGRAS IMPORTANTES:
-        1. Formate a saída utilizando **Markdown**. Use **negrito** para destacar o nome do cliente, da nossa empresa, os nomes dos serviços/itens e os valores.
-        2. Seja claro e cite nominalmente os serviços fornecidos e as pessoas/empresas envolvidas no corpo do texto.
-        3. A proposta final deve soar profissional, persuasiva e estruturada.
-        4. NÃO gere tabelas de preços, nem adicione blocos de assinaturas no final do texto. Isso já é gerado pelo sistema separadamente. Apenas gere o corpo/apresentação da proposta.
-        5. Retorne EXCLUSIVAMENTE o conteúdo final da proposta (sem saudações da IA do tipo "Aqui está a proposta:").
+
+        LEMBRE-SE: seu trabalho é PREENCHER um modelo existente, não criar um novo texto. Respeite a estrutura original.
         """
     else:
         prompt = f"""

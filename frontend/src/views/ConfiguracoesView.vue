@@ -11,6 +11,7 @@
           <TabList>
             <Tab value="geral"><i class="pi pi-cog mr-2"></i> Geral</Tab>
             <Tab value="emails"><i class="pi pi-envelope mr-2"></i> E-mails (SMTP)</Tab>
+            <Tab value="variaveis"><i class="pi pi-tags mr-2"></i> Variáveis</Tab>
           </TabList>
           
           <TabPanels>
@@ -103,6 +104,49 @@
                 </div>
               </div>
             </TabPanel>
+
+            <TabPanel value="variaveis">
+              <div class="form-section">
+                <h3 class="form-section-title">
+                  <i class="pi pi-tags"></i>
+                  Variáveis Customizadas
+                </h3>
+                <p class="section-desc">
+                  Crie variáveis personalizadas para usar nos modelos de proposta. Use o formato
+                  <code v-pre>{{nome_variavel}}</code>. Disponíveis na paleta do editor de modelos.
+                </p>
+
+                <div class="mb-3">
+                  <Button label="Nova Variável" icon="pi pi-plus" size="small" @click="openVarDialog()" :disabled="!authStore.isAdmin" />
+                </div>
+
+                <DataTable :value="customVars" size="small" stripedRows v-if="customVars.length > 0">
+                  <Column field="tag" header="Tag">
+                    <template #body="{ data }">
+                      <code class="var-tag-code">{{ data.tag }}</code>
+                    </template>
+                  </Column>
+                  <Column field="nome" header="Nome" />
+                  <Column field="valor_padrao" header="Valor Padrão (opcional)">
+                    <template #body="{ data }">
+                      <span v-if="data.valor_padrao" class="text-secondary">{{ data.valor_padrao }}</span>
+                      <span v-else class="text-muted">—</span>
+                    </template>
+                  </Column>
+                  <Column header="Ações" style="width: 120px">
+                    <template #body="{ data }">
+                      <Button icon="pi pi-pencil" severity="secondary" text rounded size="small" @click="openVarDialog(data)" />
+                      <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="deleteVar(data)" />
+                    </template>
+                  </Column>
+                </DataTable>
+
+                <div v-else class="empty-vars">
+                  <i class="pi pi-info-circle"></i>
+                  <span>Nenhuma variável customizada cadastrada. Crie variáveis para usar nos seus modelos.</span>
+                </div>
+              </div>
+            </TabPanel>
           </TabPanels>
         </Tabs>
 
@@ -117,6 +161,28 @@
       <i class="pi pi-spin pi-spinner"></i>
       <span>Carregando configurações...</span>
     </div>
+
+    <Dialog v-model:visible="varDialogVisible" :header="editingVar ? 'Editar Variável' : 'Nova Variável Customizada'" modal :style="{ width: '450px' }">
+      <form @submit.prevent="saveVar" class="p-fluid">
+        <div class="field mb-3">
+          <label for="varTag">Tag *</label>
+          <InputText id="varTag" v-model="varForm.tag" required placeholder="{{minha_variavel}}" />
+          <small class="helper-text">Formato: {duas chaves}nome_variavel{duas chaves}. Ex: {{custom_saudacao}}</small>
+        </div>
+        <div class="field mb-3">
+          <label for="varNome">Nome *</label>
+          <InputText id="varNome" v-model="varForm.nome" required placeholder="Nome descritivo" />
+        </div>
+        <div class="field mb-3">
+          <label for="varPadrao">Valor Padrão (opcional)</label>
+          <InputText id="varPadrao" v-model="varForm.valor_padrao" placeholder="Valor usado como fallback" />
+        </div>
+        <div class="dialog-actions">
+          <Button label="Cancelar" severity="secondary" text @click="varDialogVisible = false" />
+          <Button type="submit" :label="editingVar ? 'Salvar' : 'Criar'" icon="pi pi-check" :loading="savingVar" />
+        </div>
+      </form>
+    </Dialog>
   </div>
 </template>
 
@@ -124,6 +190,7 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import Textarea from 'primevue/textarea'
@@ -133,16 +200,26 @@ import TabList from 'primevue/tablist'
 import Tab from 'primevue/tab'
 import TabPanels from 'primevue/tabpanels'
 import TabPanel from 'primevue/tabpanel'
+import Dialog from 'primevue/dialog'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
 import api from '../services/api'
 
 const authStore = useAuthStore()
 const toast = useToast()
+const confirm = useConfirm()
 
 const config = ref(null)
+const customVars = ref([])
 
 const smtpPassword = ref('')
 const showSmtpPwd = ref(false)
 const saving = ref(false)
+
+const varDialogVisible = ref(false)
+const editingVar = ref(null)
+const varForm = ref({ tag: '', nome: '', valor_padrao: '' })
+const savingVar = ref(false)
 
 
 onMounted(async () => {
@@ -152,8 +229,66 @@ onMounted(async () => {
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Erro', detail: 'Erro ao carregar configurações', life: 3000 })
   }
-
+  fetchCustomVars()
 })
+
+async function fetchCustomVars() {
+  try {
+    const { data } = await api.get('/api/modelos/variaveis')
+    customVars.value = data.customizadas
+  } catch (e) {
+    console.error('Erro ao carregar variáveis customizadas:', e)
+  }
+}
+
+function openVarDialog(item = null) {
+  editingVar.value = item
+  if (item) {
+    varForm.value = { tag: item.tag, nome: item.nome, valor_padrao: item.valor_padrao || '' }
+  } else {
+    varForm.value = { tag: '', nome: '', valor_padrao: '' }
+  }
+  varDialogVisible.value = true
+}
+
+async function saveVar() {
+  savingVar.value = true
+  try {
+    if (editingVar.value) {
+      await api.put(`/api/modelos/variaveis/customizadas/${editingVar.value.id}`, varForm.value)
+      toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Variável atualizada', life: 3000 })
+    } else {
+      await api.post('/api/modelos/variaveis/customizadas', varForm.value)
+      toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Variável criada', life: 3000 })
+    }
+    varDialogVisible.value = false
+    await fetchCustomVars()
+  } catch (e) {
+    const msg = e.response?.data?.detail || 'Erro ao salvar variável'
+    toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 5000 })
+  } finally {
+    savingVar.value = false
+  }
+}
+
+async function deleteVar(item) {
+  confirm.require({
+    message: `Deseja realmente excluir a variável "${item.tag}"?`,
+    header: 'Confirmar Exclusão',
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: 'Excluir',
+    rejectLabel: 'Cancelar',
+    accept: async () => {
+      try {
+        await api.delete(`/api/modelos/variaveis/customizadas/${item.id}`)
+        toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Variável excluída', life: 3000 })
+        await fetchCustomVars()
+      } catch (e) {
+        toast.add({ severity: 'error', summary: 'Erro', detail: 'Erro ao excluir', life: 3000 })
+      }
+    }
+  })
+}
 
 async function handleSave() {
   saving.value = true
@@ -368,6 +503,45 @@ export default {
 
 .loading-state i {
   font-size: 1.5rem;
+}
+
+.var-tag-code {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--primary-500);
+  background: rgba(243, 156, 18, 0.08);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.empty-vars {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  justify-content: center;
+}
+
+.mb-3 {
+  margin-bottom: 1rem;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
 }
 
 @media (max-width: 768px) {
