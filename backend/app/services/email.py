@@ -2,12 +2,18 @@ import smtplib
 from email.message import EmailMessage
 import logging
 from app.models.empresa import Empresa
+from app.core.security import decrypt_data
 
 logger = logging.getLogger(__name__)
 
 def send_email_sync(empresa: Empresa, to_email: str, subject: str, html_content: str):
     if not empresa.smtp_host or not empresa.smtp_port or not empresa.smtp_user or not empresa.smtp_password:
         raise ValueError("Configuração SMTP da empresa incompleta.")
+
+    # A senha está criptografada no banco
+    real_password = decrypt_data(empresa.smtp_password)
+    if not real_password:
+        raise ValueError("Falha ao descriptografar a senha SMTP da empresa.")
 
     msg = EmailMessage()
     msg['Subject'] = subject
@@ -21,7 +27,7 @@ def send_email_sync(empresa: Empresa, to_email: str, subject: str, html_content:
         server.ehlo()
         server.starttls()
         server.ehlo()
-        server.login(empresa.smtp_user, empresa.smtp_password)
+        server.login(empresa.smtp_user, real_password)
         server.send_message(msg)
         server.quit()
         return True
