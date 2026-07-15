@@ -8,13 +8,13 @@
     </div>
 
     <div v-for="cat in categoriasFiltradas" :key="cat.nome" class="palette-category">
-      <div class="category-header" @click="cat.expanded = !cat.expanded">
-        <i :class="cat.expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-xs"></i>
+      <div class="category-header" @click="toggleCategory(cat.key, cat.defaultExpanded)">
+        <i :class="isExpanded(cat.key, cat.defaultExpanded) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-xs"></i>
         <span class="category-name">{{ cat.nome }}</span>
         <span class="category-count">{{ cat.vars.length }}</span>
       </div>
 
-      <div v-show="cat.expanded" class="category-vars">
+      <div v-show="isExpanded(cat.key, cat.defaultExpanded)" class="category-vars">
         <div
           v-for="v in cat.vars"
           :key="v.tag"
@@ -43,6 +43,22 @@ const emit = defineEmits(['insert-var'])
 const search = ref('')
 const sistemaVars = shallowRef([])
 const customVars = shallowRef([])
+const expandedState = ref({})
+
+function isExpanded(key, defaultState) {
+  if (expandedState.value[key] !== undefined) {
+    return expandedState.value[key]
+  }
+  return defaultState
+}
+
+function toggleCategory(key, defaultState) {
+  if (expandedState.value[key] === undefined) {
+    expandedState.value[key] = !defaultState
+  } else {
+    expandedState.value[key] = !expandedState.value[key]
+  }
+}
 
 const categoriasFiltradas = computed(() => {
   const cats = []
@@ -73,15 +89,16 @@ const categoriasFiltradas = computed(() => {
     const all = [...sistema, ...custom.map(c => ({ ...c, categoria: key }))]
 
     if (all.length > 0 || search.value === '') {
-      cats.push({ nome, vars: all, expanded: search.value !== '' || all.length <= 5 })
+      cats.push({ key, nome, vars: all, defaultExpanded: search.value !== '' || all.length <= 5 })
     }
   })
 
   if (customVars.value.length > 0 && search.value === '') {
     cats.push({
+      key: 'custom',
       nome: 'Customizadas',
       vars: customVars.value.map(c => ({ ...c, categoria: 'custom' })),
-      expanded: true
+      defaultExpanded: true
     })
   }
 
