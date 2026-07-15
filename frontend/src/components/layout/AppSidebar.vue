@@ -69,6 +69,7 @@ const navItems = computed(() => {
     { path: '/integracoes', icon: 'pi pi-share-alt', label: 'Integrações' },
     { path: '/empresa', icon: 'pi pi-building', label: 'Dados da Empresa' },
     { path: '/configuracoes', icon: 'pi pi-cog', label: 'Configurações' },
+    { path: '/setup', icon: 'pi pi-sliders-v', label: 'Assistente de Configuração' },
   ]
   if (authStore.isSuperuser) {
     items.push({ path: '/admin', icon: 'pi pi-chart-bar', label: 'Admin Dashboard' })
