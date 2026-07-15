@@ -13,13 +13,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi import Request
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from app.database import AsyncSessionLocal
+from app.core.middleware import DomainResolutionMiddleware
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(f"[{settings.APP_NAME}] v{settings.APP_VERSION} starting...")
-    from app.database import AsyncSessionLocal
-    from app.core.middleware import DomainResolutionMiddleware
-    domain_middleware = DomainResolutionMiddleware(AsyncSessionLocal)
-    app.add_middleware(type(domain_middleware), dispatch=domain_middleware.__call__)
     yield
     print(f"[{settings.APP_NAME}] shutting down...")
 
@@ -47,6 +47,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+domain_middleware = DomainResolutionMiddleware(AsyncSessionLocal)
+app.add_middleware(BaseHTTPMiddleware, dispatch=domain_middleware.__call__)
 
 # Routers
 app.include_router(auth.router)
