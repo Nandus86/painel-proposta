@@ -31,7 +31,7 @@ async def create_or_update_superadmin():
             # Create user
             user_id = str(uuid.uuid4())
             await session.execute(
-                text("INSERT INTO usuarios (id, empresa_id, nome, email, senha_hash, role, cargo, is_superuser, ativo, created_at, updated_at) VALUES (:id, :empresa_id, 'Super Admin', 'superadmin@teste.com', :senha, 'ADMIN', 'Super Administrador', true, true, :now, :now)"),
+                text("INSERT INTO usuarios (id, empresa_id, nome, email, senha_hash, role, cargo, is_superuser, ativo, created_at, updated_at) VALUES (:id, :empresa_id, 'Super Admin', 'superadmin@teste.com', :senha, 'admin', 'Super Administrador', true, true, :now, :now)"),
                 {"id": user_id, "empresa_id": empresa_id, "senha": senha_hash, "now": now}
             )
             print("Novo usuário Superadmin criado com sucesso!")
