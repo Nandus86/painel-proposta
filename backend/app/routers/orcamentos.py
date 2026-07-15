@@ -351,14 +351,15 @@ async def enviar_orcamento_email(
     current_user: Usuario = Depends(get_current_active_user),
 ):
     from fastapi.concurrency import run_in_threadpool
-    from app.services.email import send_email_sync
+    from app.services.email import send_email_sync, get_email_content
 
     stmt = select(Orcamento).where(
         Orcamento.id == id,
         Orcamento.empresa_id == current_user.empresa_id
     ).options(
         selectinload(Orcamento.cliente),
-        selectinload(Orcamento.empresa)
+        selectinload(Orcamento.empresa),
+        selectinload(Orcamento.usuario)
     )
     result = await db.execute(stmt)
     orcamento = result.scalar_one_or_none()
@@ -373,20 +374,7 @@ async def enviar_orcamento_email(
     origin = request.headers.get("origin", "https://seu-dominio.com")
     link = f"{origin}/o/{orcamento.token_publico}"
     
-    subject = f"Orçamento Comercial #{orcamento.numero} - {orcamento.empresa.razao_social}"
-    html_content = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-        <h2 style="color: #4f46e5;">Olá, {orcamento.cliente.contato_nome or orcamento.cliente.razao_social}!</h2>
-        <p>A empresa <strong>{orcamento.empresa.razao_social}</strong> enviou um orçamento comercial para você.</p>
-        <p><strong>Título:</strong> {orcamento.titulo}</p>
-        <div style="margin: 30px 0; text-align: center;">
-            <a href="{link}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Visualizar Orçamento Completo</a>
-        </div>
-        <p>Se tiver qualquer dúvida, basta responder a este e-mail.</p>
-        <hr style="border: 0; border-top: 1px solid #eaeaea; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #888; text-align: center;">Enviado via Painel Proposta</p>
-    </div>
-    """
+    subject, html_content = get_email_content(orcamento.empresa, orcamento, link, is_orcamento=True)
 
     try:
         await run_in_threadpool(

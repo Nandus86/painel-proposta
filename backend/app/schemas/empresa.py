@@ -35,6 +35,8 @@ class EmpresaBase(BaseModel):
     smtp_host: Optional[str] = None
     smtp_port: Optional[int] = None
     smtp_user: Optional[str] = None
+    email_assunto_padrao: Optional[str] = None
+    email_corpo_padrao: Optional[str] = None
 
 class EmpresaCreate(EmpresaBase):
     pass
@@ -71,6 +73,8 @@ class EmpresaUpdate(BaseModel):
     smtp_port: Optional[int] = None
     smtp_user: Optional[str] = None
     smtp_password: Optional[str] = None
+    email_assunto_padrao: Optional[str] = None
+    email_corpo_padrao: Optional[str] = None
 
 
 class EmpresaAdminUpdate(BaseModel):

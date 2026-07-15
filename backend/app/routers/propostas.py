@@ -351,14 +351,15 @@ async def enviar_proposta_email(
     current_user: Usuario = Depends(get_current_active_user),
 ):
     from fastapi.concurrency import run_in_threadpool
-    from app.services.email import send_email_sync
+    from app.services.email import send_email_sync, get_email_content
 
     stmt = select(Proposta).where(
         Proposta.id == id,
         Proposta.empresa_id == current_user.empresa_id
     ).options(
         selectinload(Proposta.cliente),
-        selectinload(Proposta.empresa)
+        selectinload(Proposta.empresa),
+        selectinload(Proposta.usuario)
     )
     result = await db.execute(stmt)
     proposta = result.scalar_one_or_none()
@@ -373,20 +374,7 @@ async def enviar_proposta_email(
     origin = request.headers.get("origin", "https://seu-dominio.com")
     link = f"{origin}/p/{proposta.token_publico}"
     
-    subject = f"Proposta Comercial #{proposta.numero} - {proposta.empresa.razao_social}"
-    html_content = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-        <h2 style="color: #4f46e5;">Olá, {proposta.cliente.contato_nome or proposta.cliente.razao_social}!</h2>
-        <p>A empresa <strong>{proposta.empresa.razao_social}</strong> enviou uma proposta comercial para você.</p>
-        <p><strong>Título:</strong> {proposta.titulo}</p>
-        <div style="margin: 30px 0; text-align: center;">
-            <a href="{link}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Visualizar Proposta Completa</a>
-        </div>
-        <p>Se tiver qualquer dúvida, basta responder a este e-mail.</p>
-        <hr style="border: 0; border-top: 1px solid #eaeaea; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #888; text-align: center;">Enviado via Painel Proposta</p>
-    </div>
-    """
+    subject, html_content = get_email_content(proposta.empresa, proposta, link, is_orcamento=False)
 
     try:
         await run_in_threadpool(

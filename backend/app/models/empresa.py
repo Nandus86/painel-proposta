@@ -65,6 +65,8 @@ class Empresa(Base):
     smtp_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     smtp_user: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     smtp_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    email_assunto_padrao: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    email_corpo_padrao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     @property
     def has_smtp_password(self) -> bool:

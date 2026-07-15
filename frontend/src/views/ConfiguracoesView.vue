@@ -11,6 +11,7 @@
           <TabList>
             <Tab value="geral"><i class="pi pi-cog mr-2"></i> Geral</Tab>
             <Tab value="emails"><i class="pi pi-envelope mr-2"></i> E-mails (SMTP)</Tab>
+            <Tab value="email_template"><i class="pi pi-palette mr-2"></i> Modelo de E-mail</Tab>
             <Tab value="variaveis"><i class="pi pi-tags mr-2"></i> Variáveis</Tab>
           </TabList>
           
@@ -105,6 +106,50 @@
               </div>
             </TabPanel>
 
+            <TabPanel value="email_template">
+              <div class="form-section">
+                <h3 class="form-section-title">
+                  <i class="pi pi-palette"></i>
+                  Modelo de E-mail Padrão
+                </h3>
+                <p class="section-desc">Personalize o e-mail que é enviado ao cliente quando você dispara uma proposta ou orçamento.</p>
+
+                <div class="field mb-3">
+                  <label>Assunto do E-mail</label>
+                  <InputText 
+                    v-model="config.email_assunto_padrao" 
+                    :disabled="!authStore.isAdmin" 
+                    placeholder="Ex: Proposta Comercial #{numero} - {empresa_razao_social}" 
+                  />
+                  <small class="helper-text">
+                    Você pode usar variáveis aqui também.
+                  </small>
+                </div>
+
+                <div class="editor-layout">
+                  <div class="editor-main" @dragover.prevent @drop.prevent="onDropEmail">
+                    <label>Corpo do E-mail (Markdown/HTML)</label>
+                    <div
+                      ref="editorRef"
+                      class="model-editor"
+                      contenteditable="true"
+                      @input="onEditorInput"
+                      @paste="onPaste"
+                      @keydown.enter.prevent="onEnter"
+                      @keydown.backspace="onBackspace"
+                    >
+                    </div>
+                    <small class="helper-text">
+                      Arraste variáveis da paleta lateral ou digite o texto do modelo.
+                    </small>
+                  </div>
+                  <div class="editor-sidebar">
+                    <VariablePalette @insert-var="insertVariable" />
+                  </div>
+                </div>
+              </div>
+            </TabPanel>
+
             <TabPanel value="variaveis">
               <div class="form-section">
                 <h3 class="form-section-title">
@@ -187,7 +232,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -203,7 +248,11 @@ import TabPanel from 'primevue/tabpanel'
 import Dialog from 'primevue/dialog'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
+import Column from 'primevue/column'
+import VariablePalette from '../components/VariablePalette.vue'
 import api from '../services/api'
+
+const TAG_RE = /\{\{[a-z][a-z0-9_]*\}\}/g
 
 const authStore = useAuthStore()
 const toast = useToast()
@@ -226,6 +275,11 @@ onMounted(async () => {
   try {
     const { data } = await api.get('/api/empresas/me')
     config.value = data
+    nextTick(() => {
+      if (editorRef.value) {
+        setEditorContent(config.value.email_corpo_padrao || '')
+      }
+    })
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Erro', detail: 'Erro ao carregar configurações', life: 3000 })
   }
@@ -290,6 +344,169 @@ async function deleteVar(item) {
   })
 }
 
+const editorRef = ref(null)
+
+function markdownToHtml(text) {
+  if (!text) return ''
+  return text.replace(TAG_RE, (match) => {
+    const inner = match.slice(2, -2)
+    return `<span class="var-badge" contenteditable="false" data-tag="${match}" data-inner="${inner}" style="background:rgba(59,130,246,0.12);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);font-weight:600;border-radius:4px;padding:0 6px;margin:0 1px;font-family:monospace;font-size:0.85em;cursor:default;display:inline-block;white-space:nowrap;">${match}</span>`
+  })
+}
+
+function htmlToMarkdown() {
+  if (!editorRef.value) return ''
+  let html = editorRef.value.innerHTML
+
+  html = html.replace(/<span[^>]*data-tag="([^"]*)"[^>]*>.*?<\/span>/g, (_, tag) => tag)
+  html = html.replace(/<br\s*\/?>/gi, '\n')
+  html = html.replace(/<div>/gi, '').replace(/<\/div>/gi, '\n')
+  html = html.replace(/<\/p>/gi, '\n')
+  html = html.replace(/<[^>]*>/g, '')
+
+  return html.replace(/\n{3,}/g, '\n\n').trim()
+}
+
+function setEditorContent(markdown) {
+  if (!editorRef.value) return
+  editorRef.value.innerHTML = ''
+  const lines = markdown.split('\n')
+  lines.forEach((line) => {
+    const span = document.createElement('div')
+    span.innerHTML = markdownToHtml(line) || '<br>'
+    editorRef.value.appendChild(span)
+  })
+}
+
+function insertVariable(tag) {
+  // If focused on the subject field
+  const activeEl = document.activeElement
+  if (activeEl && activeEl.tagName === 'INPUT' && activeEl.closest('.form-section')) {
+    const start = activeEl.selectionStart
+    const end = activeEl.selectionEnd
+    const currentVal = activeEl.value
+    activeEl.value = currentVal.substring(0, start) + tag + currentVal.substring(end)
+    // dispatch event
+    activeEl.dispatchEvent(new Event('input'))
+    
+    // reset cursor
+    setTimeout(() => {
+      activeEl.selectionStart = activeEl.selectionEnd = start + tag.length
+      activeEl.focus()
+    }, 0)
+    return
+  }
+
+  // Otherwise, insert in contenteditable
+  if (!editorRef.value) return
+
+  const sel = window.getSelection()
+  let cursorNode = null
+  let cursorOffset = 0
+
+  if (sel.rangeCount > 0) {
+    const range = sel.getRangeAt(0)
+    if (editorRef.value.contains(range.commonAncestorContainer)) {
+      cursorNode = range.startContainer
+      cursorOffset = range.startOffset
+    }
+  }
+
+  if (!cursorNode || !editorRef.value.contains(cursorNode)) {
+    const lastChild = editorRef.value.lastChild
+    if (lastChild) {
+      const textNode = document.createTextNode(' ')
+      lastChild.appendChild(textNode)
+      const range = document.createRange()
+      range.setStart(textNode, 1)
+      range.collapse(true)
+      sel.removeAllRanges()
+      sel.addRange(range)
+      cursorNode = textNode
+      cursorOffset = 1
+    }
+  }
+
+  if (cursorNode && editorRef.value.contains(cursorNode)) {
+    const badgeDiv = document.createElement('span')
+    badgeDiv.innerHTML = markdownToHtml(tag)
+    const badge = badgeDiv.firstChild
+
+    const range = document.createRange()
+    range.setStart(cursorNode, cursorOffset)
+    range.collapse(true)
+
+    range.insertNode(badge)
+
+    const space = document.createTextNode(' ')
+    range.setStartAfter(badge)
+    range.insertNode(space)
+
+    range.setStartAfter(space)
+    range.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(range)
+    
+    onEditorInput()
+  }
+}
+
+function onDropEmail(event) {
+  event.preventDefault()
+  const tag = event.dataTransfer.getData('text/plain')
+  if (tag && TAG_RE.test(tag)) {
+    editorRef.value.focus()
+
+    const x = event.clientX
+    const y = event.clientY
+    if (document.caretRangeFromPoint) {
+      const range = document.caretRangeFromPoint(x, y)
+      if (range) {
+        const sel = window.getSelection()
+        sel.removeAllRanges()
+        sel.addRange(range)
+      }
+    }
+
+    insertVariable(tag)
+  }
+}
+
+function onEditorInput() {
+  if (config.value) {
+    config.value.email_corpo_padrao = htmlToMarkdown()
+  }
+}
+
+function onPaste(event) {
+  event.preventDefault()
+  const text = event.clipboardData.getData('text/plain')
+  document.execCommand('insertText', false, text)
+}
+
+function onEnter(event) {
+  event.preventDefault()
+  document.execCommand('insertLineBreak')
+}
+
+function onBackspace(event) {
+  const sel = window.getSelection()
+  if (sel.rangeCount === 0) return
+
+  const range = sel.getRangeAt(0)
+  if (range.collapsed) {
+    const node = range.startContainer
+    if (node.nodeType === 3 && range.startOffset === 0) {
+      const prev = node.previousSibling
+      if (prev && prev.classList && prev.classList.contains('var-badge')) {
+        event.preventDefault()
+        prev.remove()
+        onEditorInput()
+      }
+    }
+  }
+}
+
 async function handleSave() {
   saving.value = true
   try {
@@ -300,7 +517,10 @@ async function handleSave() {
 
       smtp_host: config.value.smtp_host,
       smtp_port: config.value.smtp_port,
-      smtp_user: config.value.smtp_user
+      smtp_user: config.value.smtp_user,
+      
+      email_assunto_padrao: config.value.email_assunto_padrao,
+      email_corpo_padrao: config.value.email_corpo_padrao
     }
     
     if (smtpPassword.value.trim()) {
@@ -552,4 +772,55 @@ export default {
     grid-column: span 1;
   }
 }
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1rem;
+  min-height: 320px;
+}
+
+.editor-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.editor-main label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.model-editor {
+  flex: 1;
+  min-height: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  padding: 0.75rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.model-editor:focus {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+}
+
+.model-editor:empty::before {
+  content: 'Digite o conteúdo do modelo aqui...';
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.editor-sidebar {
+  display: flex;
+}
+
 </style>
