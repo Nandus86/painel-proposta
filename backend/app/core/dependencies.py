@@ -63,7 +63,11 @@ async def require_admin(
     current_user: Usuario = Depends(get_current_user),
 ) -> Usuario:
     """Dependency that requires admin role."""
-    if current_user.role.value != "admin":
+    from app.models.usuario import UserRole
+    # Compare with the enum member directly. Since UserRole inherits from str, 
+    # this will work even if current_user.role is somehow a raw string 'admin'.
+    if current_user.role != UserRole.ADMIN:
+        print(f"DEBUG require_admin failed: user={current_user.email}, role={repr(current_user.role)}, type={type(current_user.role)}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso restrito a administradores",
@@ -75,7 +79,9 @@ async def require_gerente_or_admin(
     current_user: Usuario = Depends(get_current_user),
 ) -> Usuario:
     """Dependency that requires gerente or admin role."""
-    if current_user.role.value not in ("admin", "gerente"):
+    from app.models.usuario import UserRole
+    if current_user.role not in (UserRole.ADMIN, UserRole.GERENTE):
+        print(f"DEBUG require_gerente_or_admin failed: user={current_user.email}, role={repr(current_user.role)}, type={type(current_user.role)}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso restrito a gerentes e administradores",
