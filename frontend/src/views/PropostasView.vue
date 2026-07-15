@@ -144,7 +144,7 @@ async function checkRequirements() {
     checks.value.clientes = cRes.data.total > 0;
     checks.value.categorias = catRes.data.total > 0;
     checks.value.servicos = sRes.data.total > 0;
-    checks.value.modelos = mRes.data.total > 0;
+    checks.value.modelos = mRes.data.length > 0;
   } catch (e) {
     console.error('Erro ao verificar requisitos:', e);
   } finally {

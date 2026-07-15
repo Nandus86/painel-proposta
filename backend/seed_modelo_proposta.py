@@ -55,14 +55,13 @@ Atenciosamente,
         modelo_id = str(uuid.uuid4())
         await session.execute(
             text("""
-                INSERT INTO modelos_proposta (id, empresa_id, nome, conteudo, criado_por_id, ativo)
-                VALUES (:id, :empresa_id, 'Modelo Comercial Padrão', :conteudo, :criado_por_id, true)
+                INSERT INTO modelos_proposta (id, empresa_id, titulo, conteudo)
+                VALUES (:id, :empresa_id, 'Modelo Comercial Padrão', :conteudo)
             """),
             {
                 "id": modelo_id,
                 "empresa_id": empresa_id,
-                "conteudo": markdown_content,
-                "criado_por_id": user_id
+                "conteudo": markdown_content
             }
         )
         
