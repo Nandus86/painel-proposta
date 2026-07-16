@@ -248,7 +248,6 @@ import TabPanel from 'primevue/tabpanel'
 import Dialog from 'primevue/dialog'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Column from 'primevue/column'
 import VariablePalette from '../components/VariablePalette.vue'
 import api from '../services/api'
 
