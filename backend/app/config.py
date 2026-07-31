@@ -26,6 +26,16 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173"
     BASE_DOMAIN: str = "painelproposta.com"
 
+    # Storage / MinIO
+    STORAGE_PROVIDER: str = "local"  # "local" or "minio"
+    MINIO_ENDPOINT: Optional[str] = None  # e.g. "minio:9000" or "localhost:9000"
+    MINIO_ACCESS_KEY: Optional[str] = None
+    MINIO_SECRET_KEY: Optional[str] = None
+    MINIO_BUCKET_NAME: str = "painel-proposta"
+    MINIO_SECURE: bool = False
+    MINIO_PUBLIC_URL: Optional[str] = None  # e.g. "https://minio.seu-dominio.com"
+
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]

@@ -256,9 +256,11 @@ const dominioProprioPermitido = computed(() => {
 
 function backendUrl(path) {
   if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
   const baseUrl = api.defaults.baseURL || 'http://localhost:8000'
   return `${baseUrl}${path}`
 }
+
 
 async function handleLogoUpload(event) {
   const file = event.target.files[0]

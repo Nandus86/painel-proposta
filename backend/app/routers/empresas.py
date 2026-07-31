@@ -14,8 +14,10 @@ from app.core.dependencies import get_current_user, require_admin, require_super
 from app.core.security import get_password_hash
 from app.models.usuario import UserRole
 from app.config import settings
+from app.services.storage import storage_service
 
 router = APIRouter(prefix="/api/empresas", tags=["Empresas"])
+
 
 
 @router.post("/setup", response_model=EmpresaResponse, status_code=status.HTTP_201_CREATED)
@@ -151,7 +153,38 @@ async def update_my_empresa(
     return EmpresaResponse.model_validate(empresa)
 
 
+@router.post("/logo")
+@router.post("/me/logo")
+async def upload_empresa_logo(
+    file: UploadFile = File(...),
+    current_user: Usuario = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload company logo image (MinIO or Local storage)."""
+    if file.content_type and not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Arquivo enviado deve ser uma imagem (PNG, JPG, SVG, WEBP, etc.)",
+        )
+
+    result = await db.execute(
+        select(Empresa).where(Empresa.id == current_user.empresa_id)
+    )
+    empresa = result.scalar_one_or_none()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    logo_url = await storage_service.upload_file(file, folder="logos")
+    empresa.logo_url = logo_url
+
+    await db.flush()
+    await db.refresh(empresa)
+
+    return {"logo_url": logo_url}
+
+
 @router.put("/me/dominio", response_model=EmpresaResponse)
+
 async def configurar_dominio(
     data: DominioSetup,
     current_user: Usuario = Depends(require_admin),
