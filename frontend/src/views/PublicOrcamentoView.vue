@@ -138,9 +138,11 @@ const token = route.params.token;
 
 const backendUrl = (path) => {
   if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
   const baseUrl = api.defaults.baseURL || 'http://localhost:8000';
   return `${baseUrl}${path}`;
 };
+
 
 const loadOrcamento = async () => {
   try {

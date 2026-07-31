@@ -53,7 +53,16 @@ def generate_proposal_pdf(proposta: Proposta) -> bytes:
     empresa = proposta.empresa
     cliente = proposta.cliente
     
+    logo_html = ""
+    if empresa and getattr(empresa, "logo_url", None):
+        logo_src = empresa.logo_url
+        if logo_src.startswith("/uploads/"):
+            import os
+            logo_src = os.path.abspath(logo_src.lstrip("/"))
+        logo_html = f'<img src="{logo_src}" style="max-height: 50px; max-width: 180px; margin-bottom: 8px;" /><br/>'
+
     # Formatação de datas
+
     data_emissao_str = proposta.data_emissao.strftime("%d/%m/%Y")
     data_validade_str = proposta.data_validade.strftime("%d/%m/%Y") if proposta.data_validade else "—"
     
@@ -242,7 +251,9 @@ def generate_proposal_pdf(proposta: Proposta) -> bytes:
         <table class="header-table">
             <tr>
                 <td class="header-left">
+                    {logo_html}
                     <div class="brand-title">{empresa.nome_fantasia or empresa.razao_social}</div>
+
                     <div class="brand-subtitle">PROPOSTA COMERCIAL</div>
                     <p style="margin: 8px 0 0 0; font-size: 8.5pt; color: #6c757d; line-height: 1.3;">
                         CNPJ: {empresa.cnpj}<br/>
