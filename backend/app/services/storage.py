@@ -1,8 +1,9 @@
 import os
 import uuid
 import json
+import mimetypes
 from io import BytesIO
-from typing import Optional
+from typing import Optional, Tuple
 from fastapi import UploadFile
 from app.config import settings
 
@@ -96,12 +97,9 @@ class StorageService:
                 if settings.MINIO_PUBLIC_URL:
                     base_url = settings.MINIO_PUBLIC_URL.rstrip("/")
                     return f"{base_url}/{bucket_name}/{object_key}"
-                else:
-                    scheme = "https" if settings.MINIO_SECURE else "http"
-                    endpoint = (settings.MINIO_ENDPOINT or "").rstrip("/")
-                    if not endpoint.startswith("http://") and not endpoint.startswith("https://"):
-                        endpoint = f"{scheme}://{endpoint}"
-                    return f"{endpoint}/{bucket_name}/{object_key}"
+
+                # If no explicit public MinIO URL is set, return relative path served by FastAPI
+                return f"/uploads/{folder}/{unique_name}"
             except Exception as e:
                 print(f"[StorageService] MinIO upload error: {e}. Falling back to local storage.")
 
@@ -116,6 +114,36 @@ class StorageService:
         # Normalize path separators for URL
         url_path = f"/uploads/{folder}/{unique_name}".replace("\\", "/")
         return url_path
+
+    async def get_file_content(self, object_key: str) -> Tuple[Optional[bytes], Optional[str]]:
+        """
+        Retrieves file bytes and content-type from local storage or MinIO.
+        Returns (content, content_type) or (None, None) if not found.
+        """
+        object_key = object_key.lstrip("/")
+
+        # 1. Try local file first
+        local_path = os.path.join("uploads", object_key)
+        if os.path.isfile(local_path):
+            content_type, _ = mimetypes.guess_type(local_path)
+            with open(local_path, "rb") as f:
+                return f.read(), content_type or "application/octet-stream"
+
+        # 2. Try MinIO if configured
+        if self._is_minio_configured():
+            try:
+                client = self._get_minio_client()
+                bucket_name = settings.MINIO_BUCKET_NAME
+                response = client.get_object(bucket_name, object_key)
+                data = response.read()
+                content_type = response.headers.get("Content-Type") or "application/octet-stream"
+                response.close()
+                response.release_conn()
+                return data, content_type
+            except Exception as e:
+                print(f"[StorageService] Error reading '{object_key}' from MinIO: {e}")
+
+        return None, None
 
 
 storage_service = StorageService()

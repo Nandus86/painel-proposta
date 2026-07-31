@@ -67,8 +67,27 @@ app.include_router(orcamentos.router)
 app.include_router(admin_config.router)
 app.include_router(superadmin.router)
 
-# Mount Static Files
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Uploads Handler (serves from local storage or MinIO seamlessly)
+from fastapi.responses import Response, FileResponse
+from app.services.storage import storage_service
+
+@app.get("/uploads/{path:path}")
+async def get_uploaded_file(path: str):
+    """Serves uploaded files from local disk or MinIO storage."""
+    local_file = os.path.join("uploads", path)
+    if os.path.isfile(local_file):
+        return FileResponse(local_file)
+
+    content, content_type = await storage_service.get_file_content(path)
+    if content:
+        return Response(
+            content=content,
+            media_type=content_type,
+            headers={"Cache-Control": "public, max-age=86400"}
+        )
+
+    return JSONResponse(status_code=404, content={"detail": "Arquivo não encontrado"})
+
 
 
 @app.get("/api/health")

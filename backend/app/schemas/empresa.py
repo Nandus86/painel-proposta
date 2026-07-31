@@ -37,6 +37,7 @@ class EmpresaBase(BaseModel):
     smtp_user: Optional[str] = None
     email_assunto_padrao: Optional[str] = None
     email_corpo_padrao: Optional[str] = None
+    logo_url: Optional[str] = None
 
 class EmpresaCreate(EmpresaBase):
     pass
@@ -45,6 +46,8 @@ class EmpresaCreate(EmpresaBase):
 class EmpresaUpdate(BaseModel):
     razao_social: Optional[str] = None
     nome_fantasia: Optional[str] = None
+    logo_url: Optional[str] = None
+
     inscricao_estadual: Optional[str] = None
     email: Optional[EmailStr] = None
     telefone: Optional[str] = None
