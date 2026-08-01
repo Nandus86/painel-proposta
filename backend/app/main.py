@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import auth, empresas, usuarios, clientes, categorias, servicos, propostas, ai, modelos, public, dashboard, orcamentos, admin_config, superadmin
+from app.routers import auth, empresas, usuarios, clientes, categorias, servicos, propostas, ai, modelos, public, dashboard, orcamentos, admin_config, superadmin, planos, whatsapp
 from app.models import Orcamento
 from fastapi.staticfiles import StaticFiles
 import os
@@ -33,8 +33,6 @@ app = FastAPI(
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    print(f"Validation Error: {exc.errors()}")
-    print(f"Body: {exc.body}")
     return JSONResponse(
         status_code=422,
         content={"detail": exc.errors()},
@@ -66,15 +64,22 @@ app.include_router(dashboard.router)
 app.include_router(orcamentos.router)
 app.include_router(admin_config.router)
 app.include_router(superadmin.router)
+app.include_router(planos.router)
+app.include_router(whatsapp.router)
 
-# Uploads Handler (serves from local storage or MinIO seamlessly)
+    # Uploads Handler (serves from local storage or MinIO seamlessly)
 from fastapi.responses import Response, FileResponse
 from app.services.storage import storage_service
 
 @app.get("/uploads/{path:path}")
 async def get_uploaded_file(path: str):
     """Serves uploaded files from local disk or MinIO storage."""
-    local_file = os.path.join("uploads", path)
+    safe_path = os.path.normpath(path).lstrip("/")
+    local_file = os.path.join("uploads", safe_path)
+    real_local = os.path.realpath(local_file)
+    real_uploads = os.path.realpath("uploads")
+    if not real_local.startswith(real_uploads + os.sep) and real_local != real_uploads:
+        return JSONResponse(status_code=403, content={"detail": "Acesso negado"})
     if os.path.isfile(local_file):
         return FileResponse(local_file)
 
@@ -114,9 +119,7 @@ async def setup_status(
     empresa = result.scalar_one_or_none()
 
     setup_done = False
-    # If the user completed the setup step 1, they would have provided a phone number 
-    # or changed the company name from the dummy "Empresa de {nome}"
-    if empresa and empresa.telefone:
+    if empresa and empresa.setup_concluido:
         setup_done = True
 
     return {"setup_done": setup_done}

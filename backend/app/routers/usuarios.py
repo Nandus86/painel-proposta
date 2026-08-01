@@ -5,7 +5,7 @@ from sqlalchemy import select, func
 from app.database import get_db
 from app.models.usuario import Usuario, UserRole
 from app.schemas.usuario import UsuarioCreate, UsuarioUpdate, UsuarioResponse, UsuarioListResponse
-from app.core.dependencies import get_current_user, require_admin
+from app.core.dependencies import get_current_user, require_admin, verificar_limite_usuarios
 from app.core.security import get_password_hash
 
 router = APIRouter(prefix="/api/usuarios", tags=["Usuários"])
@@ -64,6 +64,7 @@ async def create_usuario(
     data: UsuarioCreate,
     current_user: Usuario = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
+    _limit: None = Depends(verificar_limite_usuarios),
 ):
     """Create a new user. Admin only."""
     # Check email uniqueness

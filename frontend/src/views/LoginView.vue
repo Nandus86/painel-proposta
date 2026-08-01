@@ -14,7 +14,7 @@
           <div class="logo-icon">
             <i class="pi pi-file-edit"></i>
           </div>
-          <h1 class="login-title">Dekto</h1>
+          <h1 class="login-title">{{ APP_NAME }}</h1>
           <p class="login-subtitle">Sistema de Propostas — Acesse sua conta</p>
         </div>
 
@@ -78,7 +78,7 @@
         Não tem uma conta? <router-link to="/register" class="register-link">Criar conta</router-link>
       </p>
       <p class="login-copyright">
-        © 2026 Dekto • Todos os direitos reservados
+        © 2026 {{ APP_NAME }} • Todos os direitos reservados
       </p>
     </div>
   </div>
@@ -90,6 +90,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
+import { APP_NAME } from '../config/branding'
 
 const router = useRouter()
 const authStore = useAuthStore()

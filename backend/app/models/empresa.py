@@ -41,6 +41,13 @@ class Empresa(Base):
     # Integrações de Comunicação
     whatsapp_conectado: Mapped[bool] = mapped_column(default=False, server_default="false")
     telegram_conectado: Mapped[bool] = mapped_column(default=False, server_default="false")
+
+    # Uazapi
+    uazapi_instance_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    uazapi_instance_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    whatsapp_numero: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    whatsapp_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    whatsapp_mensagem_padrao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
     # Pagamentos (Stripe/PayTR)
     stripe_publishable_key: Mapped[Optional[str]] = mapped_column(String(255))
@@ -49,8 +56,10 @@ class Empresa(Base):
 
     # Controle SuperAdmin (Assinatura / Acesso)
     plano: Mapped[str] = mapped_column(String(50), default="gratuito", server_default="gratuito")
+    plano_solicitado: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     status_pagamento: Mapped[str] = mapped_column(String(50), default="em_dia", server_default="em_dia")
     ativo: Mapped[bool] = mapped_column(default=True, server_default="true")
+    setup_concluido: Mapped[bool] = mapped_column(default=False, server_default="false")
 
     # Configurações
     prefixo_proposta: Mapped[str] = mapped_column(String(10), default="PROP")
@@ -80,9 +89,9 @@ class Empresa(Base):
     )
 
     # Relacionamentos
-    usuarios = relationship("Usuario", back_populates="empresa", lazy="selectin")
-    clientes = relationship("Cliente", back_populates="empresa", lazy="selectin")
-    categorias = relationship("Categoria", back_populates="empresa", lazy="selectin")
-    servicos = relationship("Servico", back_populates="empresa", lazy="selectin")
-    propostas = relationship("Proposta", back_populates="empresa", lazy="selectin")
-    logs_admin = relationship("LogAdmin", back_populates="empresa", lazy="selectin", cascade="all, delete-orphan")
+    usuarios = relationship("Usuario", back_populates="empresa", lazy="select")
+    clientes = relationship("Cliente", back_populates="empresa", lazy="select")
+    categorias = relationship("Categoria", back_populates="empresa", lazy="select")
+    servicos = relationship("Servico", back_populates="empresa", lazy="select")
+    propostas = relationship("Proposta", back_populates="empresa", lazy="select")
+    logs_admin = relationship("LogAdmin", back_populates="empresa", lazy="select", cascade="all, delete-orphan")

@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.usuario import Usuario
 from app.schemas.auth import LoginRequest, TokenResponse, RefreshRequest, UserInfo, RegisterRequest
@@ -73,7 +74,7 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """Authenticate user and return JWT tokens."""
     result = await db.execute(
-        select(Usuario).where(Usuario.email == data.email)
+        select(Usuario).where(Usuario.email == data.email).options(selectinload(Usuario.empresa))
     )
     user = result.scalar_one_or_none()
 
@@ -87,6 +88,12 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuário desativado. Contate o administrador.",
+        )
+
+    if not user.empresa or not user.empresa.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Empresa bloqueada. Contate o administrador do sistema.",
         )
 
     # Update last login

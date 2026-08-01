@@ -15,6 +15,10 @@ class SistemaConfig(Base):
     openrouter_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     openrouter_model: Mapped[str] = mapped_column(String(255), default="google/gemini-2.5-flash")
 
+    # WhatsApp (Uazapi)
+    uazapi_base_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    uazapi_admin_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -22,3 +26,7 @@ class SistemaConfig(Base):
     @property
     def has_openrouter_key(self) -> bool:
         return bool(self.openrouter_key)
+
+    @property
+    def has_uazapi_admin_token(self) -> bool:
+        return bool(self.uazapi_admin_token)

@@ -158,9 +158,9 @@
               <label>Subdomínio</label>
               <div class="domain-input-group">
                 <InputText v-model="empresa.subdominio" :disabled="!authStore.isAdmin" placeholder="minhaempresa" class="domain-input" />
-                <span class="domain-suffix">.painelproposta.com</span>
+                <span class="domain-suffix">.{{ ROOT_DOMAIN }}</span>
               </div>
-              <small class="helper-text">URL de acesso: https://{{ empresa.subdominio || 'minhaempresa' }}.painelproposta.com</small>
+              <small class="helper-text">URL de acesso: https://{{ empresa.subdominio || 'minhaempresa' }}.{{ ROOT_DOMAIN }}</small>
             </div>
             <div class="field span-2">
               <label>Domínio Personalizado</label>
@@ -169,7 +169,7 @@
                 <Button v-if="!dominioProprioPermitido && authStore.isAdmin" label="Premium" icon="pi pi-lock" severity="secondary" text size="small" class="upgrade-hint" />
               </div>
               <small v-if="!dominioProprioPermitido" class="helper-text warn">Domínio personalizado disponível nos planos Pro e Premium.</small>
-              <small v-else class="helper-text">Configure um CNAME no seu DNS apontando para painelproposta.com</small>
+              <small v-else class="helper-text">Configure um CNAME no seu DNS apontando para {{ ROOT_DOMAIN }}</small>
             </div>
           </div>
         </div>
@@ -240,6 +240,8 @@ import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import Checkbox from 'primevue/checkbox'
 import api from '../services/api'
+import { assetUrl } from '../utils/assetUrl'
+import { ROOT_DOMAIN } from '../config/branding'
 
 const authStore = useAuthStore()
 const toast = useToast()
@@ -255,10 +257,7 @@ const dominioProprioPermitido = computed(() => {
 })
 
 function backendUrl(path) {
-  if (!path) return ''
-  if (path.startsWith('http://') || path.startsWith('https://')) return path
-  const baseUrl = api.defaults.baseURL || 'http://localhost:8000'
-  return `${baseUrl}${path}`
+  return assetUrl(path)
 }
 
 

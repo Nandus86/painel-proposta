@@ -44,8 +44,9 @@ services:
     depends_on:
       - backend
     environment:
-      - VITE_API_URL=/
-      - VITE_BASE_DOMAIN=painelproposta.com
+      - VITE_API_URL=
+      - VITE_APP_NAME=Dekto
+      - VITE_ROOT_DOMAIN=dekto.com
 
 volumes:
   pgdata:

@@ -137,6 +137,11 @@ const routes = [
       },
     ],
   },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('../views/LoginView.vue'),
+  },
 ]
 
 const router = createRouter({

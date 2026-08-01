@@ -1,5 +1,5 @@
 # Stage 1: Build the Vue application
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -7,14 +7,12 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy the rest of the application
 COPY . .
 
-# Build the application with VITE_API_URL set to root
-# so that api calls are made to the same host (Nginx will proxy them)
-ENV VITE_API_URL=/
+# Build the application
 RUN npm run build
 
 # Stage 2: Serve the application with Nginx

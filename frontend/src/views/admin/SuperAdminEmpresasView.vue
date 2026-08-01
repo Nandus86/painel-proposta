@@ -7,8 +7,8 @@
 
     <div class="filters-bar">
       <InputText v-model="searchQuery" placeholder="Buscar por razão social..." class="search-input" @input="onSearch" />
-      <Dropdown v-model="filtroPlano" :options="planosOptions" placeholder="Filtrar por Plano" class="filter-dropdown" @change="onFilter" />
-      <Dropdown v-model="filtroStatus" :options="statusOptions" placeholder="Filtrar por Status" class="filter-dropdown" @change="onFilter" />
+      <Dropdown v-model="filtroPlano" :options="planosOptions" optionLabel="label" optionValue="value" placeholder="Filtrar por Plano" class="filter-dropdown" @change="onFilter" />
+      <Dropdown v-model="filtroStatus" :options="statusOptions" optionLabel="label" optionValue="value" placeholder="Filtrar por Status" class="filter-dropdown" @change="onFilter" />
     </div>
 
     <div class="content-card glass">
@@ -36,7 +36,7 @@
               <span class="empresa-name">{{ slotProps.data.razao_social }}</span>
               <span class="empresa-subinfo">CNPJ: {{ slotProps.data.cnpj }}</span>
               <span class="empresa-subinfo" v-if="slotProps.data.email"><i class="pi pi-envelope text-xs"></i> {{ slotProps.data.email }}</span>
-              <span class="empresa-subinfo" v-if="slotProps.data.subdominio"><i class="pi pi-globe text-xs"></i> {{ slotProps.data.subdominio }}.painelproposta.com</span>
+              <span class="empresa-subinfo" v-if="slotProps.data.subdominio"><i class="pi pi-globe text-xs"></i> {{ slotProps.data.subdominio }}.{{ ROOT_DOMAIN }}</span>
               <span class="empresa-subinfo" v-if="slotProps.data.dominio_personalizado"><i class="pi pi-link text-xs"></i> {{ slotProps.data.dominio_personalizado }}</span>
             </div>
           </template>
@@ -197,6 +197,8 @@ import Tab from 'primevue/tab'
 import TabPanels from 'primevue/tabpanels'
 import TabPanel from 'primevue/tabpanel'
 import api from '../../services/api'
+import { assetUrl } from '../../utils/assetUrl'
+import { ROOT_DOMAIN } from '../../config/branding'
 
 const toast = useToast()
 const empresas = ref([])
@@ -251,10 +253,7 @@ const empresasFiltradas = computed(() => {
 })
 
 function backendUrl(path) {
-  if (!path) return ''
-  if (path.startsWith('http://') || path.startsWith('https://')) return path
-  const baseUrl = api.defaults.baseURL || 'http://localhost:8000'
-  return `${baseUrl}${path}`
+  return assetUrl(path)
 }
 
 

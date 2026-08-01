@@ -26,6 +26,10 @@ class EmpresaBase(BaseModel):
     dominio_personalizado: Optional[str] = None
     whatsapp_conectado: bool = False
     telegram_conectado: bool = False
+    uazapi_instance_id: Optional[str] = None
+    whatsapp_numero: Optional[str] = None
+    whatsapp_status: Optional[str] = None
+    whatsapp_mensagem_padrao: Optional[str] = None
     stripe_publishable_key: Optional[str] = None
     stripe_secret_key: Optional[str] = None
     pagamento_modo_teste: bool = True
@@ -62,9 +66,10 @@ class EmpresaUpdate(BaseModel):
     idioma: Optional[str] = None
     setor: Optional[str] = None
     cor_marca: Optional[str] = None
-    subdominio: Optional[str] = None
-    dominio_personalizado: Optional[str] = None
     whatsapp_conectado: Optional[bool] = None
+    whatsapp_numero: Optional[str] = None
+    whatsapp_status: Optional[str] = None
+    whatsapp_mensagem_padrao: Optional[str] = None
     telegram_conectado: Optional[bool] = None
     stripe_publishable_key: Optional[str] = None
     stripe_secret_key: Optional[str] = None
@@ -82,6 +87,7 @@ class EmpresaUpdate(BaseModel):
 
 class EmpresaAdminUpdate(BaseModel):
     plano: Optional[str] = None
+    plano_solicitado: Optional[str] = None
     status_pagamento: Optional[str] = None
     ativo: Optional[bool] = None
 
@@ -102,8 +108,10 @@ class EmpresaResponse(EmpresaBase):
     logo_url: Optional[str] = None
     has_smtp_password: bool = False
     plano: str = "gratuito"
+    plano_solicitado: Optional[str] = None
     status_pagamento: str = "em_dia"
     ativo: bool = True
+    setup_concluido: bool = False
     created_at: datetime
     updated_at: datetime
 

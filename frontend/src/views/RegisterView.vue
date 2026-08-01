@@ -4,11 +4,11 @@
       <!-- Painel Esquerdo (Testimonial/Branding) -->
       <div class="left-pane">
         <div class="logo">
-          <h2>Dekto</h2>
+          <h2>{{ APP_NAME }}</h2>
         </div>
         <div class="testimonial">
           <p>
-            "Renovações e novos seguros ficavam parados no CRM sem proposta formal. Com um clique levámos tudo para Dekto, gerámos cotações interativas em lote—a taxa de aceitação subiu tanto que a equipa ainda comenta nos corredores."
+            "Renovações e novos seguros ficavam parados no CRM sem proposta formal. Com um clique levámos tudo para {{ APP_NAME }}, gerámos cotações interativas em lote—a taxa de aceitação subiu tanto que a equipa ainda comenta nos corredores."
           </p>
           <span class="author">— Marina S., Diretora comercial, seguros</span>
         </div>
@@ -74,7 +74,7 @@
               <div class="checkbox-item">
                 <Checkbox v-model="form.marketing" inputId="marketing" :binary="true" />
                 <label for="marketing">
-                  Dicas de utilização e e-mails de marketing apenas da Dekto (opcional)
+                  Dicas de utilização e e-mails de marketing apenas da {{ APP_NAME }} (opcional)
                 </label>
               </div>
             </div>
@@ -111,6 +111,7 @@ import { useAuthStore } from '../stores/auth'
 import InputText from 'primevue/inputtext'
 import Checkbox from 'primevue/checkbox'
 import Button from 'primevue/button'
+import { APP_NAME } from '../config/branding'
 
 const router = useRouter()
 const authStore = useAuthStore()

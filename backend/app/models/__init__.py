@@ -9,20 +9,22 @@ from app.models.modelo_proposta import ModeloProposta
 from app.models.sistema_config import SistemaConfig
 from app.models.log_admin import LogAdmin
 from app.models.variavel_customizada import VariavelCustomizada
+from app.models.plano import Plano
 
 __all__ = [
-    "Empresa", 
-    "Usuario", 
-    "UserRole", 
-    "Cliente", 
-    "Categoria", 
-    "Servico", 
-    "Orcamento", 
-    "StatusOrcamento", 
-    "Proposta", 
+    "Empresa",
+    "Usuario",
+    "UserRole",
+    "Cliente",
+    "Categoria",
+    "Servico",
+    "Orcamento",
+    "StatusOrcamento",
+    "Proposta",
     "StatusProposta",
     "ModeloProposta",
     "SistemaConfig",
     "LogAdmin",
-    "VariavelCustomizada"
+    "VariavelCustomizada",
+    "Plano",
 ]

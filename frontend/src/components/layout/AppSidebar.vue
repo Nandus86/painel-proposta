@@ -8,7 +8,7 @@
         </div>
         <transition name="fade-text">
           <div v-if="!collapsed" class="logo-text">
-            <span class="logo-title">Dekto</span>
+            <span class="logo-title">{{ APP_NAME }}</span>
             <span class="logo-subtitle">PROPOSTAS</span>
           </div>
         </transition>
@@ -38,7 +38,7 @@
 
     <!-- Footer -->
     <div class="sidebar-footer">
-      <div v-if="!collapsed" class="version-badge">v1.0.0</div>
+      <div v-if="!collapsed" class="version-badge">v{{ APP_VERSION }}</div>
     </div>
   </aside>
 </template>
@@ -47,6 +47,7 @@
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { computed } from 'vue'
+import { APP_NAME, APP_VERSION } from '../../config/branding'
 
 const props = defineProps({
   collapsed: Boolean,
@@ -66,11 +67,18 @@ const navItems = computed(() => {
     { path: '/categorias', icon: 'pi pi-tags', label: 'Categorias' },
     { path: '/servicos', icon: 'pi pi-box', label: 'Produtos e Serviços' },
     { path: '/modelos', icon: 'pi pi-copy', label: 'Modelos de Proposta' },
+  ]
+  if (authStore.isAdmin) {
+    items.push({ path: '/usuarios', icon: 'pi pi-id-card', label: 'Usuários' })
+  }
+  items.push(
     { path: '/integracoes', icon: 'pi pi-share-alt', label: 'Integrações' },
     { path: '/empresa', icon: 'pi pi-building', label: 'Dados da Empresa' },
     { path: '/configuracoes', icon: 'pi pi-cog', label: 'Configurações' },
-    { path: '/setup', icon: 'pi pi-sliders-v', label: 'Assistente de Configuração' },
-  ]
+  )
+  if (authStore.isAdmin) {
+    items.push({ path: '/setup', icon: 'pi pi-sliders-v', label: 'Reabrir Assistente' })
+  }
   if (authStore.isSuperuser) {
     items.push({ path: '/admin', icon: 'pi pi-chart-bar', label: 'Admin Dashboard' })
     items.push({ path: '/admin/empresas', icon: 'pi pi-globe', label: 'Admin Empresas' })
@@ -80,7 +88,7 @@ const navItems = computed(() => {
 
 function isActive(path) {
   if (path === '/') return route.path === '/'
-  return route.path === path
+  return route.path.startsWith(path)
 }
 </script>
 

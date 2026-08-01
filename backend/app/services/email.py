@@ -113,7 +113,7 @@ Se tiver qualquer dúvida, basta responder a este e-mail.
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
         {html_content}
         <hr style="border: 0; border-top: 1px solid #eaeaea; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #888; text-align: center;">Enviado via Painel Proposta</p>
+        <p style="font-size: 12px; color: #888; text-align: center;">Enviado via Dekto</p>
     </div>
     """
     

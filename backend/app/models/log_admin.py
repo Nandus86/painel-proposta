@@ -25,5 +25,5 @@ class LogAdmin(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    empresa = relationship("Empresa", back_populates="logs_admin", lazy="selectin")
-    superadmin = relationship("Usuario", foreign_keys=[superadmin_id], lazy="selectin")
+    empresa = relationship("Empresa", back_populates="logs_admin", lazy="select")
+    superadmin = relationship("Usuario", foreign_keys=[superadmin_id], lazy="select")

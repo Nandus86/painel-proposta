@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
 
 
 class Settings(BaseSettings):
@@ -8,7 +9,7 @@ class Settings(BaseSettings):
     DATABASE_URL_SYNC: str = "postgresql+psycopg://postgres:postgres@localhost:5432/painel_proposta"
 
     # JWT
-    SECRET_KEY: str = "super-secret-key-change-in-production"
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -21,19 +22,22 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "gpt-4o"
 
     # App
-    APP_NAME: str = "Painel Proposta"
+    APP_NAME: str = "Dekto"
     APP_VERSION: str = "1.0.0"
     CORS_ORIGINS: str = "http://localhost:5173"
-    BASE_DOMAIN: str = "painelproposta.com"
+    BASE_DOMAIN: str = "dekto.com"
+    FRONTEND_URL: str = "http://localhost:5173"
+    ENVIRONMENT: str = "development"
+    LOG_LEVEL: str = "INFO"
 
     # Storage / MinIO
-    STORAGE_PROVIDER: str = "local"  # "local" or "minio"
-    MINIO_ENDPOINT: Optional[str] = None  # e.g. "minio:9000" or "localhost:9000"
+    STORAGE_PROVIDER: str = "local"
+    MINIO_ENDPOINT: Optional[str] = None
     MINIO_ACCESS_KEY: Optional[str] = None
     MINIO_SECRET_KEY: Optional[str] = None
     MINIO_BUCKET_NAME: str = "painel-proposta"
     MINIO_SECURE: bool = False
-    MINIO_PUBLIC_URL: Optional[str] = None  # e.g. "https://minio.seu-dominio.com"
+    MINIO_PUBLIC_URL: Optional[str] = None
 
 
     @property
@@ -44,3 +48,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+if not settings.SECRET_KEY and settings.ENVIRONMENT != "development":
+    raise RuntimeError("SECRET_KEY must be set in production")
+if not settings.SECRET_KEY and settings.ENVIRONMENT == "development":
+    settings.SECRET_KEY = "dev-secret-key-change-in-production"

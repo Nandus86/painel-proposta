@@ -19,6 +19,22 @@ from app.services.storage import storage_service
 router = APIRouter(prefix="/api/empresas", tags=["Empresas"])
 
 
+@router.post("/me/setup-concluir")
+async def concluir_setup(
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Empresa).where(Empresa.id == current_user.empresa_id)
+    )
+    empresa = result.scalar_one_or_none()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    empresa.setup_concluido = True
+    await db.commit()
+    return {"message": "Setup concluído com sucesso"}
+
+
 
 @router.post("/setup", response_model=EmpresaResponse, status_code=status.HTTP_201_CREATED)
 async def setup_empresa(
@@ -56,29 +72,9 @@ async def setup_empresa(
     )
     db.add(admin)
 
-    return EmpresaResponse(
-        id=str(empresa.id),
-        razao_social=empresa.razao_social,
-        nome_fantasia=empresa.nome_fantasia,
-        cnpj=empresa.cnpj,
-        inscricao_estadual=empresa.inscricao_estadual,
-        email=empresa.email,
-        telefone=empresa.telefone,
-        endereco=empresa.endereco,
-        cidade=empresa.cidade,
-        estado=empresa.estado,
-        cep=empresa.cep,
-        observacoes=empresa.observacoes,
-        prefixo_proposta=empresa.prefixo_proposta,
-        validade_padrao_dias=empresa.validade_padrao_dias,
-        logo_url=empresa.logo_url,
-        has_smtp_password=empresa.has_smtp_password,
-        smtp_host=empresa.smtp_host,
-        smtp_port=empresa.smtp_port,
-        smtp_user=empresa.smtp_user,
-        created_at=empresa.created_at,
-        updated_at=empresa.updated_at,
-    )
+    await db.flush()
+    await db.refresh(empresa)
+    return EmpresaResponse.model_validate(empresa)
 
 
 @router.get("/me", response_model=EmpresaResponse)
@@ -94,29 +90,7 @@ async def get_my_empresa(
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
-    return EmpresaResponse(
-        id=str(empresa.id),
-        razao_social=empresa.razao_social,
-        nome_fantasia=empresa.nome_fantasia,
-        cnpj=empresa.cnpj,
-        inscricao_estadual=empresa.inscricao_estadual,
-        email=empresa.email,
-        telefone=empresa.telefone,
-        endereco=empresa.endereco,
-        cidade=empresa.cidade,
-        estado=empresa.estado,
-        cep=empresa.cep,
-        observacoes=empresa.observacoes,
-        prefixo_proposta=empresa.prefixo_proposta,
-        validade_padrao_dias=empresa.validade_padrao_dias,
-        logo_url=empresa.logo_url,
-        has_smtp_password=empresa.has_smtp_password,
-        smtp_host=empresa.smtp_host,
-        smtp_port=empresa.smtp_port,
-        smtp_user=empresa.smtp_user,
-        created_at=empresa.created_at,
-        updated_at=empresa.updated_at,
-    )
+    return EmpresaResponse.model_validate(empresa)
 
 
 @router.put("/me", response_model=EmpresaResponse)
@@ -218,10 +192,12 @@ async def configurar_dominio(
     if data.dominio_personalizado is not None:
         dominio = data.dominio_personalizado.strip().lower()
         if dominio:
-            if empresa.plano not in ("pro", "premium"):
+            from app.models.plano import Plano
+            plano_obj = await db.get(Plano, empresa.plano)
+            if not plano_obj or not plano_obj.permite_dominio_proprio:
                 raise HTTPException(
                     status_code=400,
-                    detail="Domínio personalizado requer plano Pro ou Premium."
+                    detail="Domínio personalizado requer plano Pro ou Empresarial."
                 )
             import re
             if not re.match(r'^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$', dominio):
@@ -277,6 +253,56 @@ async def verificar_dominio(
             }
         ]
     )
+
+
+@router.post("/me/smtp/testar")
+async def testar_smtp(
+    data: EmpresaUpdate,
+    current_user: Usuario = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.email import send_email_sync
+    from asyncio import get_event_loop
+
+    result = await db.execute(select(Empresa).where(Empresa.id == current_user.empresa_id))
+    empresa = result.scalar_one_or_none()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    smtp_host = data.smtp_host or empresa.smtp_host
+    smtp_port = data.smtp_port or empresa.smtp_port
+    smtp_user = data.smtp_user or empresa.smtp_user
+
+    if not smtp_host or not smtp_port or not smtp_user:
+        raise HTTPException(status_code=400, detail="Preencha todos os campos SMTP")
+
+    from app.core.security import encrypt_data, decrypt_data
+    pwd_to_use = None
+    if data.smtp_password:
+        pwd_to_use = data.smtp_password
+    elif empresa.smtp_password:
+        pwd_to_use = decrypt_data(empresa.smtp_password)
+    if not pwd_to_use:
+        raise HTTPException(status_code=400, detail="Senha SMTP não configurada")
+
+    test_empresa = Empresa(
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
+        smtp_user=smtp_user,
+        smtp_password=encrypt_data(pwd_to_use),
+    )
+
+    loop = get_event_loop()
+    await loop.run_in_executor(
+        None,
+        send_email_sync,
+        test_empresa,
+        current_user.email,
+        f"Teste SMTP - {settings.APP_NAME}",
+        "<h2>Teste de envio bem-sucedido!</h2><p>Se você está lendo isso, sua configuração SMTP está funcionando.</p>",
+    )
+    return {"message": "E-mail de teste enviado. Verifique sua caixa de entrada."}
+
 
 @router.get("/admin/todas", response_model=List[EmpresaResponse])
 async def list_todas_empresas(

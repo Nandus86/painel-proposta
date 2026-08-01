@@ -8,7 +8,7 @@
         </div>
         <transition name="fade-text">
           <div v-if="!collapsed" class="logo-text">
-            <span class="logo-title">Dekto</span>
+            <span class="logo-title">{{ APP_NAME }}</span>
             <span class="logo-subtitle">SUPER ADMIN</span>
           </div>
         </transition>
@@ -49,7 +49,7 @@
 
     <!-- Footer -->
     <div class="sidebar-footer">
-      <div v-if="!collapsed" class="version-badge">v1.0.0</div>
+      <div v-if="!collapsed" class="version-badge">v{{ APP_VERSION }}</div>
     </div>
   </aside>
 </template>
@@ -57,6 +57,7 @@
 <script setup>
 import { useRoute } from 'vue-router'
 import { computed } from 'vue'
+import { APP_NAME, APP_VERSION } from '../../config/branding'
 
 const props = defineProps({
   collapsed: Boolean,

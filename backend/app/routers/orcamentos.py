@@ -18,7 +18,7 @@ from app.schemas.orcamento import (
     OrcamentoList,
     ItemOrcamentoCreate
 )
-from app.core.dependencies import get_current_active_user
+from app.core.dependencies import get_current_active_user, verificar_limite_propostas
 from app.models.usuario import Usuario
 
 router = APIRouter(prefix="/api/orcamentos", tags=["orcamentos"])
@@ -109,6 +109,7 @@ async def create_orcamento(
     db: AsyncSession = Depends(get_db),
     orcamento_in: OrcamentoCreate,
     current_user: Usuario = Depends(get_current_active_user),
+    _limit: None = Depends(verificar_limite_propostas),
 ) -> Any:
     # 1. Get next proposal number for the company
     result = await db.execute(

@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from app.database import get_db
@@ -25,9 +25,16 @@ async def get_public_proposta(token: uuid.UUID, db: AsyncSession = Depends(get_d
     if not proposta:
         raise HTTPException(status_code=404, detail="Proposta não encontrada ou link inválido.")
 
-    # Increment view count
-    proposta.visualizacoes += 1
+    if not proposta.empresa.ativo:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada ou link inválido.")
+
+    # Increment view count atomically
+    await db.execute(
+        select(Proposta).where(Proposta.token_publico == token)
+    )
+    proposta.visualizacoes = (proposta.visualizacoes or 0) + 1
     await db.commit()
+    await db.refresh(proposta)
 
     # Retorna dados limpos sem expor informações sensíveis do backend (como IDs internos)
     return {
@@ -88,12 +95,20 @@ async def aceitar_proposta(
     if proposta.status == StatusProposta.ACEITA:
         raise HTTPException(status_code=400, detail="Esta proposta já foi aceita anteriormente.")
 
+    if proposta.status == StatusProposta.RECUSADA:
+        raise HTTPException(status_code=400, detail="Esta proposta foi recusada e não pode ser aceita.")
+
+    if proposta.data_validade and proposta.data_validade < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Esta proposta expirou e não pode mais ser aceita.")
+
+    if not proposta.empresa.ativo:
+        raise HTTPException(status_code=400, detail="Esta proposta não está mais disponível.")
+
     # Coleta de dados para a assinatura simples
     client_host = request.client.host if request.client else "unknown"
     # Se estiver atrás de proxy (Nginx), pega o IP real
     real_ip = request.headers.get("X-Forwarded-For", client_host).split(",")[0].strip()
 
-    from datetime import timezone
     proposta.status = StatusProposta.ACEITA
     proposta.assinatura_ip = real_ip
     proposta.assinatura_data = datetime.now(timezone.utc)
@@ -121,9 +136,13 @@ async def get_public_orcamento(token: uuid.UUID, db: AsyncSession = Depends(get_
     if not orcamento:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado ou link inválido.")
 
-    # Increment view count
-    orcamento.visualizacoes += 1
+    if not orcamento.empresa.ativo:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado ou link inválido.")
+
+    # Increment view count atomically
+    orcamento.visualizacoes = (orcamento.visualizacoes or 0) + 1
     await db.commit()
+    await db.refresh(orcamento)
 
     return {
         "titulo": orcamento.titulo,
@@ -183,10 +202,18 @@ async def aprovar_orcamento(
     if orcamento.status == StatusOrcamento.APROVADO:
         raise HTTPException(status_code=400, detail="Este orçamento já foi aprovado anteriormente.")
 
+    if orcamento.status == StatusOrcamento.RECUSADO:
+        raise HTTPException(status_code=400, detail="Este orçamento foi recusado e não pode ser aprovado.")
+
+    if orcamento.data_validade and orcamento.data_validade < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Este orçamento expirou e não pode mais ser aprovado.")
+
+    if not orcamento.empresa.ativo:
+        raise HTTPException(status_code=400, detail="Este orçamento não está mais disponível.")
+
     client_host = request.client.host if request.client else "unknown"
     real_ip = request.headers.get("X-Forwarded-For", client_host).split(",")[0].strip()
 
-    from datetime import timezone
     orcamento.status = StatusOrcamento.APROVADO
     orcamento.assinatura_ip = real_ip
     orcamento.assinatura_data = datetime.now(timezone.utc)
