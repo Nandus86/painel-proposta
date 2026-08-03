@@ -98,8 +98,12 @@ async def aceitar_proposta(
     if proposta.status == StatusProposta.RECUSADA:
         raise HTTPException(status_code=400, detail="Esta proposta foi recusada e não pode ser aceita.")
 
-    if proposta.data_validade and proposta.data_validade < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Esta proposta expirou e não pode mais ser aceita.")
+    val = proposta.data_validade
+    if val:
+        if val.tzinfo is None:
+            val = val.replace(tzinfo=timezone.utc)
+        if val < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="Esta proposta expirou e não pode mais ser aceita.")
 
     if not proposta.empresa.ativo:
         raise HTTPException(status_code=400, detail="Esta proposta não está mais disponível.")
@@ -205,8 +209,12 @@ async def aprovar_orcamento(
     if orcamento.status == StatusOrcamento.RECUSADO:
         raise HTTPException(status_code=400, detail="Este orçamento foi recusado e não pode ser aprovado.")
 
-    if orcamento.data_validade and orcamento.data_validade < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Este orçamento expirou e não pode mais ser aprovado.")
+    val = orcamento.data_validade
+    if val:
+        if val.tzinfo is None:
+            val = val.replace(tzinfo=timezone.utc)
+        if val < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="Este orçamento expirou e não pode mais ser aprovado.")
 
     if not orcamento.empresa.ativo:
         raise HTTPException(status_code=400, detail="Este orçamento não está mais disponível.")

@@ -46,11 +46,18 @@ def upgrade() -> None:
         ('empresarial', 'Empresarial', 'Para grandes operações', 129.00, 1419.00, None, None, 200, True, 3, True, False),
     ]
     for slug, nome, desc, mensal, anual, max_usr, max_prop, ai, dominio, ordem, ativo, destaque in default_planos:
+        m_str = "NULL" if mensal is None else str(mensal)
+        a_str = "NULL" if anual is None else str(anual)
+        usr_str = "NULL" if max_usr is None else str(max_usr)
+        prop_str = "NULL" if max_prop is None else str(max_prop)
+        dom_str = "true" if dominio else "false"
+        atv_str = "true" if ativo else "false"
+        des_str = "true" if destaque else "false"
         op.execute(
             f"INSERT INTO planos (slug, nome, descricao, preco_mensal, preco_anual, moeda, "
             f"max_usuarios, max_propostas_mes, ai_credits_limit, permite_dominio_proprio, "
             f"ordem, ativo, destaque) VALUES "
-            f"('{slug}', '{nome}', '{desc}', {mensal}, {anual}, 'BRL', {max_usr}, {max_prop}, {ai}, {dominio}, {ordem}, {ativo}, {destaque})"
+            f"('{slug}', '{nome}', '{desc}', {m_str}, {a_str}, 'BRL', {usr_str}, {prop_str}, {ai}, {dom_str}, {ordem}, {atv_str}, {des_str})"
         )
 
 

@@ -8,6 +8,8 @@ from app.models.sistema_config import SistemaConfig
 from app.core.dependencies import get_current_user, require_admin
 from app.services.whatsapp import ensure_instance, connect, get_status, disconnect, send_text
 
+import uuid
+
 router = APIRouter(prefix="/api/whatsapp", tags=["WhatsApp"])
 
 
@@ -82,7 +84,7 @@ async def whatsapp_desconectar(
 
 @router.post("/propostas/{id}/enviar")
 async def whatsapp_enviar_proposta(
-    id: int,
+    id: uuid.UUID,
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
