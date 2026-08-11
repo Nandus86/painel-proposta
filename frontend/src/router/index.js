@@ -157,20 +157,20 @@ router.beforeEach(async (to, from, next) => {
     await authStore.initAuth()
   }
 
-  // Check setup status for authenticated users going to non-setup pages
-  if (authStore.isAuthenticated && to.name !== 'Setup' && authStore.setupDone === null) {
-    const done = await authStore.checkSetupStatus()
-    if (!done) {
-      return next({ name: 'Setup' })
-    }
-  }
-
   if (to.meta.public) {
     // If authenticated and going to login or register, redirect to dashboard
     if ((to.name === 'Login' || to.name === 'Register') && authStore.isAuthenticated) {
       return next({ name: 'Dashboard' })
     }
     return next()
+  }
+
+  // Check setup status for authenticated users going to non-setup pages
+  if (authStore.isAuthenticated && to.name !== 'Setup' && authStore.setupDone === null) {
+    const done = await authStore.checkSetupStatus()
+    if (!done) {
+      return next({ name: 'Setup' })
+    }
   }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
