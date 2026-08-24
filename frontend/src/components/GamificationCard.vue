@@ -63,9 +63,9 @@
       <div class="perk-item">
         <i class="pi pi-file perk-icon"></i>
         <div class="perk-text">
-          <span class="perk-label">Propostas este mês:</span>
+          <span class="perk-label">Propostas & Orçamentos:</span>
           <span class="perk-val">
-            {{ propostasCriadas }} / {{ maxPropostasLabel }}
+            {{ propostasCriadas }}p / {{ orcamentosCriados }}o (Limite: {{ maxPropostasLabel }}/mês)
           </span>
         </div>
       </div>
@@ -151,6 +151,7 @@ const currentTier = computed(() => {
 const isEnterprise = computed(() => currentTier.value.slug === 'empresarial')
 
 const propostasCriadas = computed(() => props.metrics?.total_propostas || 0)
+const orcamentosCriados = computed(() => props.metrics?.total_orcamentos || 0)
 
 const maxPropostasLabel = computed(() => {
   const max = planoInfo.value?.detalhes?.max_propostas_mes
@@ -171,13 +172,13 @@ const missions = computed(() => {
   const hasEmpresaInfo = !!(empresaData.value?.telefone || empresaData.value?.cnpj)
   const hasServicos = totalServicos.value > 0
   const hasModelos = totalModelos.value > 0
-  const hasPropostas = propostasCriadas.value > 0
+  const hasPropostasOrOrcamentos = propostasCriadas.value > 0 || orcamentosCriados.value > 0
 
   return [
     { id: 'empresa', title: 'Completar dados da empresa', xp: 20, done: hasEmpresaInfo },
     { id: 'servicos', title: 'Cadastrar produtos ou serviços', xp: 20, done: hasServicos },
     { id: 'modelos', title: 'Personalizar modelo de proposta', xp: 20, done: hasModelos },
-    { id: 'proposta', title: 'Criar e enviar 1ª proposta', xp: 20, done: hasPropostas },
+    { id: 'proposta', title: 'Criar 1ª proposta ou orçamento', xp: 20, done: hasPropostasOrOrcamentos },
     { id: 'upgrade', title: 'Desbloquear plano superior', xp: 50, done: isUpgraded },
   ]
 })

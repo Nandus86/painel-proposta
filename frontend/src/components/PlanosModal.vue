@@ -101,7 +101,7 @@
             <li>
               <i class="pi pi-check-circle check-icon"></i>
               <span>
-                <strong>{{ plano.max_propostas_mes ? `${plano.max_propostas_mes} propostas` : 'Propostas Ilimitadas' }}</strong> /mês
+                <strong>{{ plano.max_propostas_mes ? `${plano.max_propostas_mes} propostas & ${plano.max_propostas_mes} orçamentos` : 'Propostas e Orçamentos Ilimitados' }}</strong> /mês
               </span>
             </li>
             <li>

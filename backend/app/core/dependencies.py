@@ -132,6 +132,32 @@ async def verificar_limite_propostas(
         )
 
 
+async def verificar_limite_orcamentos(
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.plano import Plano
+    from app.models.orcamento import Orcamento
+    from datetime import datetime, timezone
+
+    plano = await db.get(Plano, current_user.empresa.plano)
+    if not plano or plano.max_propostas_mes is None:
+        return
+
+    inicio_mes = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    count = await db.scalar(
+        select(func.count(Orcamento.id)).where(
+            Orcamento.empresa_id == current_user.empresa_id,
+            Orcamento.created_at >= inicio_mes,
+        )
+    )
+    if count >= plano.max_propostas_mes:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=f"Limite de {plano.max_propostas_mes} orçamentos por mês atingido. Faça upgrade do seu plano.",
+        )
+
+
 async def verificar_limite_usuarios(
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
