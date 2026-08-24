@@ -13,6 +13,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isGerente = computed(() => ['admin', 'gerente'].includes(user.value?.role))
   const isSuperuser = computed(() => !!user.value?.is_superuser)
   const empresaNome = computed(() => user.value?.empresa_nome || '')
+  const empresaPlano = computed(() => user.value?.empresa_plano || 'gratuito')
+  const empresaPlanoNome = computed(() => user.value?.empresa_plano_nome || 'Gratuito')
 
   async function checkSetupStatus() {
     try {
@@ -96,10 +98,13 @@ export const useAuthStore = defineStore('auth', () => {
     isGerente,
     isSuperuser,
     empresaNome,
+    empresaPlano,
+    empresaPlanoNome,
     checkSetupStatus,
     login,
     register,
     fetchUser,
+    refreshUser: fetchUser,
     logout,
     initAuth,
   }

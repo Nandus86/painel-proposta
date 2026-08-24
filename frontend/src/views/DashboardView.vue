@@ -1,5 +1,12 @@
 <template>
   <div class="dashboard fade-in">
+    <!-- Gamification & Tier System -->
+    <GamificationCard
+      ref="gamificationRef"
+      :metrics="metrics"
+      @open-planos="showPlanosModal = true"
+    />
+
     <div class="dashboard-filters">
       <div class="filter-group"></div>
       <div class="filter-actions">
@@ -86,12 +93,23 @@
         <p>Ainda não há atividade. <router-link to="/propostas/nova"><strong>Crie sua primeira proposta!</strong></router-link></p>
       </div>
     </div>
+
+    <!-- Modal de Planos -->
+    <PlanosModal
+      v-model:visible="showPlanosModal"
+      @plano-alterado="onPlanoAlterado"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import api from '@/services/api';
+import GamificationCard from '@/components/GamificationCard.vue';
+import PlanosModal from '@/components/PlanosModal.vue';
+
+const gamificationRef = ref(null);
+const showPlanosModal = ref(false);
 
 const metrics = ref({
   total_propostas: 0,
@@ -108,6 +126,13 @@ const fetchMetrics = async () => {
     metrics.value = res.data;
   } catch (error) {
     console.error("Erro ao carregar métricas do dashboard:", error);
+  }
+};
+
+const onPlanoAlterado = () => {
+  fetchMetrics();
+  if (gamificationRef.value?.refresh) {
+    gamificationRef.value.refresh();
   }
 };
 

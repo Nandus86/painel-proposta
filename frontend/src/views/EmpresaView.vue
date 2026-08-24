@@ -253,7 +253,7 @@ const logoInput = ref(null)
 
 const dominioProprioPermitido = computed(() => {
   if (!empresa.value) return false
-  return ['pro', 'premium'].includes(empresa.value.plano)
+  return ['pro', 'empresarial', 'premium'].includes(empresa.value.plano?.toLowerCase())
 })
 
 function backendUrl(path) {

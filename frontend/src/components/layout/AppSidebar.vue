@@ -36,18 +36,56 @@
       </div>
     </nav>
 
+    <!-- Plan & Upgrade Section (Menu Principal - Final) -->
+    <div class="sidebar-plan-section" :class="{ collapsed }">
+      <!-- Expanded State -->
+      <div v-if="!collapsed" class="plan-card-sidebar">
+        <div class="plan-info-mini">
+          <div class="plan-icon-wrapper" :class="currentPlanSlug">
+            <i :class="currentPlanIcon"></i>
+          </div>
+          <div class="plan-text-wrapper">
+            <span class="plan-title-sidebar">{{ currentPlanTitle }}</span>
+            <span class="plan-status-sidebar">Plano Ativo</span>
+          </div>
+        </div>
+        <button type="button" class="btn-change-plan" @click="showPlanosModal = true">
+          <i class="pi pi-sparkles"></i>
+          <span>Alterar Plano</span>
+        </button>
+      </div>
+
+      <!-- Collapsed State -->
+      <button
+        v-else
+        type="button"
+        class="plan-btn-collapsed"
+        :title="`Plano ${currentPlanTitle} - Clique para alterar`"
+        @click="showPlanosModal = true"
+      >
+        <i class="pi pi-bolt"></i>
+      </button>
+    </div>
+
     <!-- Footer -->
     <div class="sidebar-footer">
       <div v-if="!collapsed" class="version-badge">v{{ APP_VERSION }}</div>
     </div>
+
+    <!-- Modal de Planos -->
+    <PlanosModal
+      v-model:visible="showPlanosModal"
+      @plano-alterado="onPlanoAlterado"
+    />
   </aside>
 </template>
 
 <script setup>
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
-import { computed } from 'vue'
 import { APP_NAME, APP_VERSION } from '../../config/branding'
+import PlanosModal from '../PlanosModal.vue'
 
 const props = defineProps({
   collapsed: Boolean,
@@ -57,6 +95,35 @@ defineEmits(['toggle'])
 
 const route = useRoute()
 const authStore = useAuthStore()
+const showPlanosModal = ref(false)
+
+const currentPlanSlug = computed(() => {
+  return (authStore.empresaPlano || 'gratuito').toLowerCase()
+})
+
+const currentPlanTitle = computed(() => {
+  const titles = {
+    gratuito: 'Gratuito',
+    inicial: 'Inicial',
+    pro: 'Pro',
+    empresarial: 'Empresarial',
+  }
+  return titles[currentPlanSlug.value] || authStore.empresaPlanoNome || 'Gratuito'
+})
+
+const currentPlanIcon = computed(() => {
+  const icons = {
+    gratuito: 'pi pi-seedling',
+    inicial: 'pi pi-compass',
+    pro: 'pi pi-bolt',
+    empresarial: 'pi pi-crown',
+  }
+  return icons[currentPlanSlug.value] || 'pi pi-sparkles'
+})
+
+function onPlanoAlterado() {
+  authStore.fetchUser()
+}
 
 const navItems = computed(() => {
   const items = [
@@ -257,9 +324,124 @@ function isActive(path) {
   font-weight: 500;
 }
 
+/* Plan Section (Menu Principal - Final) */
+.sidebar-plan-section {
+  padding: 0.75rem 0.75rem 0.5rem 0.75rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.plan-card-sidebar {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: all var(--transition-fast);
+}
+
+.plan-card-sidebar:hover {
+  border-color: var(--primary-400);
+  background: var(--bg-card-hover);
+}
+
+.plan-info-mini {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.plan-icon-wrapper {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.plan-icon-wrapper.gratuito { color: #94a3b8; }
+.plan-icon-wrapper.inicial { color: #38bdf8; background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.2); }
+.plan-icon-wrapper.pro { color: var(--primary-500); background: rgba(var(--primary-rgb), 0.12); border-color: rgba(var(--primary-rgb), 0.3); }
+.plan-icon-wrapper.empresarial { color: #f59e0b; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2); }
+
+.plan-text-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.plan-title-sidebar {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plan-status-sidebar {
+  font-size: 0.65rem;
+  color: #10b981;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.btn-change-plan {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-glow-primary);
+  transition: all var(--transition-fast);
+}
+
+.btn-change-plan:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.plan-btn-collapsed {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-glow-primary);
+  transition: all var(--transition-fast);
+}
+
+.plan-btn-collapsed:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
 /* Footer */
 .sidebar-footer {
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: center;

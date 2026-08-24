@@ -181,7 +181,7 @@
           </div>
         </div>
 
-        <p v-if="planoSelecionadoPreco" class="tax-info">Após selecionar, sua solicitação será enviada para aprovação.</p>
+        <p v-if="planoSelecionadoPreco" class="tax-info">Após selecionar, seu plano e novos limites serão ativados instantaneamente.</p>
         <button type="button" class="skip-link" @click="nextStep">Continuar</button>
       </div>
 

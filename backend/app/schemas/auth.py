@@ -31,6 +31,8 @@ class UserInfo(BaseModel):
     empresa_id: str
     empresa_nome: str | None = None
     empresa_cor_marca: str | None = None
+    empresa_plano: str | None = None
+    empresa_plano_nome: str | None = None
     is_superuser: bool = False
 
     model_config = {"from_attributes": True}

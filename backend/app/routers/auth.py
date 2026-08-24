@@ -156,6 +156,13 @@ async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)
 @router.get("/me", response_model=UserInfo)
 async def get_me(current_user: Usuario = Depends(get_current_user)):
     """Return current authenticated user info."""
+    plano_slug = current_user.empresa.plano if current_user.empresa else "gratuito"
+    plano_nomes = {
+        "gratuito": "Gratuito",
+        "inicial": "Inicial",
+        "pro": "Pro",
+        "empresarial": "Empresarial",
+    }
     return UserInfo(
         id=str(current_user.id),
         nome=current_user.nome,
@@ -166,5 +173,7 @@ async def get_me(current_user: Usuario = Depends(get_current_user)):
         empresa_nome=current_user.empresa.nome_fantasia or current_user.empresa.razao_social
         if current_user.empresa else None,
         empresa_cor_marca=current_user.empresa.cor_marca if current_user.empresa else None,
+        empresa_plano=plano_slug,
+        empresa_plano_nome=plano_nomes.get(plano_slug, plano_slug.capitalize() if plano_slug else "Gratuito"),
         is_superuser=current_user.is_superuser,
     )
