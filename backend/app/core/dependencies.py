@@ -165,7 +165,8 @@ async def verificar_limite_usuarios(
     from app.models.plano import Plano
     from app.models.usuario import Usuario as UsuarioModel
 
-    plano = await db.get(Plano, current_user.empresa.plano)
+    plano_slug = (current_user.empresa.plano or "gratuito").lower().strip()
+    plano = await db.get(Plano, plano_slug)
     if not plano or plano.max_usuarios is None:
         return
 
@@ -178,5 +179,5 @@ async def verificar_limite_usuarios(
     if count >= plano.max_usuarios:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail=f"Limite de {plano.max_usuarios} usuários atingido. Faça upgrade do seu plano.",
+            detail=f"Limite de {plano.max_usuarios} usuário(s) atingido no plano {plano.nome}. Faça upgrade para adicionar novos membros.",
         )

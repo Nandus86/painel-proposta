@@ -34,12 +34,22 @@ class UsuarioResponse(BaseModel):
     telefone: Optional[str] = None
     role: str
     ativo: bool
-    is_superuser: bool
+    is_superuser: bool = False
     ultimo_login: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UsuarioQuotaResponse(BaseModel):
+    total: int
+    ativos: int
+    inativos: int
+    max_usuarios: Optional[int] = None
+    plano_slug: str
+    plano_nome: str
+    pode_adicionar: bool
 
 
 class UsuarioListResponse(BaseModel):
