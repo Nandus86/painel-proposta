@@ -8,12 +8,14 @@ import Tooltip from 'primevue/tooltip'
 import router from './router'
 import App from './App.vue'
 import { initTheme } from './utils/theme'
+import { APP_NAME } from './config/branding'
 
 import 'primeicons/primeicons.css'
 import 'primeflex/primeflex.css'
 import './assets/styles/main.css'
 
 initTheme()
+document.title = APP_NAME
 
 const app = createApp(App)
 

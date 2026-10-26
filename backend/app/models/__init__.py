@@ -10,6 +10,7 @@ from app.models.sistema_config import SistemaConfig
 from app.models.log_admin import LogAdmin
 from app.models.variavel_customizada import VariavelCustomizada
 from app.models.plano import Plano
+from app.models.notificacao import Notificacao
 
 __all__ = [
     "Empresa",
@@ -27,4 +28,5 @@ __all__ = [
     "LogAdmin",
     "VariavelCustomizada",
     "Plano",
+    "Notificacao",
 ]

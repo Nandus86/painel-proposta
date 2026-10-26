@@ -1,3 +1,4 @@
+import { errorMessage } from '@/utils/errors'
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '../services/api'
@@ -36,22 +37,22 @@ export const useAuthStore = defineStore('auth', () => {
       await fetchUser()
       return true
     } catch (error) {
-      throw error.response?.data?.detail || 'Erro ao fazer login'
+      throw errorMessage(error, 'Erro ao fazer login')
     } finally {
       loading.value = false
     }
   }
 
-  async function register(nome, email, senha) {
+  async function register(nome, email, senha, empresa = '') {
     loading.value = true
     try {
-      const { data } = await api.post('/api/auth/register', { nome, email, senha })
+      const { data } = await api.post('/api/auth/register', { nome, email, senha, empresa: empresa || null })
       localStorage.setItem('access_token', data.access_token)
       localStorage.setItem('refresh_token', data.refresh_token)
       await fetchUser()
       return true
     } catch (error) {
-      throw error.response?.data?.detail || 'Erro ao registrar'
+      throw errorMessage(error, 'Erro ao registrar')
     } finally {
       loading.value = false
     }
@@ -75,6 +76,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
+    // Revoga os tokens no servidor (melhor esforço: o logout local acontece mesmo se falhar)
+    if (localStorage.getItem('access_token')) {
+      try {
+        await api.post('/api/auth/logout')
+      } catch {
+        // ignora: token já expirado/revogado
+      }
+    }
     user.value = null
     setupDone.value = null
     resetTheme()

@@ -16,7 +16,7 @@
     <div v-else class="a4-document bg-white w-full shadow-4 flex flex-column">
       
       <!-- Top Decorative Border -->
-      <div class="doc-top-border"></div>
+      <div class="doc-top-border" :style="{ background: proposta?.empresa?.cor_marca || 'var(--p-primary-color, #4f46e5)' }"></div>
 
       <div class="doc-content">
         <!-- Header Section -->
@@ -34,7 +34,7 @@
           </div>
           
           <div class="header-right text-right">
-            <Tag :value="proposta.status.toUpperCase()" :severity="getStatusSeverity(proposta.status)" class="mb-3 px-3 py-1 font-bold shadow-1" />
+            <Tag :value="publicStatus.label" :severity="publicStatus.severity" class="mb-3 px-3 py-1 font-bold shadow-1" />
             <div class="text-700 text-sm line-height-3">
               <p class="m-0"><strong>Proposta </strong>#{{ proposta.numero }}</p>
               <p class="m-0"><strong>Data: </strong>{{ formatDate(proposta.data_emissao) }}</p>
@@ -95,7 +95,7 @@
       <!-- Footer Action Area -->
       <div class="doc-footer surface-50 border-top-1 surface-border">
         
-        <div v-if="proposta.status === 'rascunho' || proposta.status === 'enviada'" class="text-center">
+        <div v-if="(proposta.status === 'rascunho' || proposta.status === 'enviada') && !proposta.expirado" class="text-center">
           <h3 class="text-900 font-bold mb-2">Aceite da Proposta</h3>
           <p class="text-600 text-sm mb-4">Ao aprovar, você concorda formalmente com os termos e valores apresentados neste documento.</p>
           <Button label="APROVAR PROPOSTA" icon="pi pi-check-circle" size="large" class="p-button-success shadow-glow px-6 py-3 font-bold" @click="aceitarProposta" :loading="saving" />
@@ -109,8 +109,8 @@
 
         <div v-else class="text-center">
           <i class="pi pi-lock text-500 text-4xl mb-2"></i>
-          <h3 class="text-700 font-bold mb-1">Proposta Fechada</h3>
-          <p class="text-600 text-sm m-0">Este documento não pode mais ser alterado ou aprovado.</p>
+          <h3 class="text-700 font-bold mb-1">{{ proposta.expirado || proposta.status === 'expirada' ? 'Proposta Expirada' : 'Proposta Encerrada' }}</h3>
+          <p class="text-600 text-sm m-0">{{ proposta.expirado || proposta.status === 'expirada' ? 'O prazo de validade desta proposta terminou. Entre em contato para solicitar uma nova versão.' : 'Este documento não pode mais ser alterado ou aprovado.' }}</p>
         </div>
 
       </div>
@@ -120,6 +120,8 @@
 </template>
 
 <script setup>
+import { errorMessage } from '@/utils/errors'
+import { statusLabel, statusSeverity } from '@/utils/status';
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
@@ -127,7 +129,7 @@ import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import api from '@/services/api';
 import { assetUrl } from '@/utils/assetUrl';
-import { marked } from 'marked';
+import { renderMarkdown } from '@/utils/markdown';
 
 const route = useRoute();
 const toast = useToast();
@@ -149,7 +151,7 @@ const loadProposta = async () => {
     const response = await api.get(`/api/public/propostas/${token}`);
     proposta.value = response.data;
   } catch (err) {
-    error.value = err.response?.data?.detail || "Não foi possível carregar a proposta.";
+    error.value = errorMessage(err, "Não foi possível carregar a proposta.");
   } finally {
     loading.value = false;
   }
@@ -163,7 +165,7 @@ const aceitarProposta = async () => {
     proposta.value.status = 'aceita';
     proposta.value.assinatura_data = response.data.assinatura_data;
   } catch (err) {
-    const msg = err.response?.data?.detail || "Erro ao aprovar proposta.";
+    const msg = errorMessage(err, "Erro ao aprovar proposta.");
     toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 });
   } finally {
     saving.value = false;
@@ -171,6 +173,16 @@ const aceitarProposta = async () => {
 };
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+// Rótulo do status voltado ao cliente final (rascunho/enviado aparecem como "aguardando")
+const publicStatus = computed(() => {
+  const doc = proposta.value;
+  if (!doc) return { label: '', severity: 'info' };
+  const pendente = ['rascunho', 'enviada', 'enviado'].includes(doc.status);
+  if (pendente && doc.expirado) return { label: 'Expirada', severity: 'secondary' };
+  if (pendente) return { label: 'Aguardando aprovação', severity: 'warning' };
+  return { label: statusLabel('proposta', doc.status), severity: statusSeverity('proposta', doc.status) };
+});
+
 const formatDate = (dateStr, includeTime = false) => {
   if (!dateStr) return '';
   const opts = { day: '2-digit', month: '2-digit', year: 'numeric' };
@@ -181,20 +193,10 @@ const formatDate = (dateStr, includeTime = false) => {
   return new Date(dateStr).toLocaleDateString('pt-BR', opts);
 };
 
-const getStatusSeverity = (status) => {
-  switch (status) {
-    case 'rascunho': return 'info';
-    case 'enviada': return 'warning';
-    case 'aceita': return 'success';
-    case 'recusada': return 'danger';
-    case 'expirada': return 'danger';
-    default: return 'info';
-  }
-};
 
 const parsedObservacoes = computed(() => {
   if (!proposta.value || !proposta.value.observacoes) return '';
-  return marked(proposta.value.observacoes);
+  return renderMarkdown(proposta.value.observacoes);
 });
 
 onMounted(() => {

@@ -126,10 +126,12 @@ async def create_usuario(
     _limit: None = Depends(verificar_limite_usuarios),
 ):
     """Create a new user. Admin only."""
+    if len(data.senha.strip()) < 8:
+        raise HTTPException(status_code=400, detail="A senha deve ter pelo menos 8 caracteres.")
     email_clean = data.email.strip().lower()
     # Check email uniqueness across all users
     existing = await db.execute(
-        select(Usuario).where(Usuario.email == email_clean)
+        select(Usuario).where(func.lower(Usuario.email) == email_clean)
     )
     if existing.scalar_one_or_none():
         raise HTTPException(
@@ -244,7 +246,10 @@ async def update_usuario(
     if "senha" in update_data:
         senha_val = update_data.pop("senha")
         if senha_val and len(senha_val.strip()) > 0:
+            if len(senha_val.strip()) < 8:
+                raise HTTPException(status_code=400, detail="A senha deve ter pelo menos 8 caracteres.")
             update_data["senha_hash"] = get_password_hash(senha_val.strip())
+            update_data["token_version"] = (usuario.token_version or 0) + 1
 
     if "role" in update_data and update_data["role"]:
         role_val = str(update_data["role"]).strip().lower()

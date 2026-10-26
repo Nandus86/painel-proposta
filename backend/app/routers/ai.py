@@ -1,23 +1,44 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 import httpx
 from app.database import get_db
-from app.ai.engine import get_llm
-from app.core.dependencies import get_current_active_user
+from app.ai.engine import get_llm, llm_disponivel
+from app.core.dependencies import get_current_active_user, require_superuser
+from app.models.plano import Plano
 from app.models.usuario import Usuario
 from app.models.empresa import Empresa
 from app.models.sistema_config import SistemaConfig
 from app.core.security import decrypt_data
 from langchain_core.messages import HumanMessage, SystemMessage
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/ai", tags=["AI"])
 
+
+async def _limite_ia(db: AsyncSession, empresa: Empresa) -> int:
+    """Limite diário de IA: o do plano tem prioridade sobre o campo legado da empresa."""
+    plano = await db.get(Plano, (empresa.plano or "gratuito").lower().strip())
+    if plano and plano.ai_credits_limit is not None:
+        return plano.ai_credits_limit
+    return empresa.ai_credits_limit or 0
+
+
+async def _reset_diario(db: AsyncSession, empresa: Empresa) -> None:
+    hoje = date.today()
+    if empresa.ai_credits_last_reset != hoje:
+        empresa.ai_credits_used_today = 0
+        empresa.ai_credits_last_reset = hoje
+        await db.commit()
+
+
 @router.get("/openrouter/models")
-async def get_openrouter_models():
+async def get_openrouter_models(current_user: Usuario = Depends(require_superuser)):
     """Busca a lista de modelos disponíveis no OpenRouter."""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -34,7 +55,7 @@ async def get_openrouter_models():
             models.sort(key=lambda x: x["name"])
             return models
     except Exception as e:
-        print(f"Erro ao buscar modelos do OpenRouter: {e}")
+        logger.warning("Erro ao buscar modelos do OpenRouter: %s", e)
         # Retornar uma lista de fallback em caso de falha de conexão/API offline
         return [
             {"id": "google/gemini-2.5-flash", "name": "Google: Gemini 2.5 Flash"},
@@ -78,13 +99,10 @@ async def gerar_descricao_proposta(
     if not empresa:
         raise HTTPException(status_code=400, detail="Empresa não encontrada.")
 
-    hoje = date.today()
-    if empresa.ai_credits_last_reset != hoje:
-        empresa.ai_credits_used_today = 0
-        empresa.ai_credits_last_reset = hoje
-
-    if empresa.ai_credits_used_today >= empresa.ai_credits_limit:
-        raise HTTPException(status_code=429, detail="Limite diário de uso de IA atingido.")
+    await _reset_diario(db, empresa)
+    limite = await _limite_ia(db, empresa)
+    if empresa.ai_credits_used_today >= limite:
+        raise HTTPException(status_code=429, detail="Limite diário de uso de IA atingido. Tente novamente amanhã ou faça upgrade do plano.")
 
     # Buscar configurações globais de IA
     config_result = await db.execute(select(SistemaConfig).where(SistemaConfig.id == 1))
@@ -99,6 +117,9 @@ async def gerar_descricao_proposta(
         if sistema_config.openrouter_model:
             openrouter_model = sistema_config.openrouter_model
         
+    if not openrouter_key and not llm_disponivel():
+        raise HTTPException(status_code=503, detail="A geração com IA ainda não foi configurada pelo administrador do sistema.")
+
     llm = get_llm(openrouter_key=openrouter_key, openrouter_model=openrouter_model)
     
     itens_str = ""
@@ -179,17 +200,21 @@ async def gerar_descricao_proposta(
         ]
         
         response = await llm.ainvoke(messages)
-        
-        # Incrementar uso e salvar
-        empresa.ai_credits_used_today += 1
-        await db.commit()
-        
-        return {"descricao": response.content}
-    except HTTPException as he:
-        raise he
     except Exception as e:
-        print(f"Erro ao gerar descrição com IA: {e}")
-        raise HTTPException(status_code=500, detail=f"Erro ao processar IA: {str(e)}")
+        logger.error("Erro ao gerar descrição com IA (empresa %s): %s", empresa.id, e)
+        raise HTTPException(status_code=502, detail="O serviço de IA não respondeu. Tente novamente em instantes.")
+
+    # Consome o crédito de forma atômica (requisições simultâneas não ultrapassam o limite)
+    consumido = await db.execute(
+        update(Empresa)
+        .where(Empresa.id == empresa.id, Empresa.ai_credits_used_today < limite)
+        .values(ai_credits_used_today=Empresa.ai_credits_used_today + 1)
+    )
+    await db.commit()
+    if consumido.rowcount == 0:
+        raise HTTPException(status_code=429, detail="Limite diário de uso de IA atingido.")
+
+    return {"descricao": response.content}
 
 @router.get("/credits")
 async def get_ai_credits(
@@ -205,15 +230,12 @@ async def get_ai_credits(
     if not empresa:
         raise HTTPException(status_code=400, detail="Empresa não encontrada.")
 
-    hoje = date.today()
-    if empresa.ai_credits_last_reset != hoje:
-        empresa.ai_credits_used_today = 0
-        empresa.ai_credits_last_reset = hoje
-        await db.commit()
+    await _reset_diario(db, empresa)
+    limite = await _limite_ia(db, empresa)
 
     return {
         "used": empresa.ai_credits_used_today,
-        "limit": empresa.ai_credits_limit,
-        "remaining": max(0, empresa.ai_credits_limit - empresa.ai_credits_used_today)
+        "limit": limite,
+        "remaining": max(0, limite - empresa.ai_credits_used_today)
     }
 

@@ -10,6 +10,9 @@ from app.models.usuario import Usuario
 from app.schemas.cliente import ClienteCreate, ClienteUpdate, ClienteResponse, ClienteListResponse
 from app.core.dependencies import get_current_user
 
+MAX_CSV_BYTES = 2 * 1024 * 1024
+MAX_CSV_ROWS = 5000
+
 router = APIRouter(prefix="/api/clientes", tags=["Clientes"])
 
 
@@ -218,12 +221,14 @@ async def import_clientes_csv(
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if not file.filename.endswith(".csv"):
+    if not (file.filename or "").lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="O arquivo deve ser um CSV")
 
-    content = await file.read()
+    content = await file.read(MAX_CSV_BYTES + 1)
+    if len(content) > MAX_CSV_BYTES:
+        raise HTTPException(status_code=400, detail="Arquivo muito grande (máximo 2 MB).")
     try:
-        text = content.decode("utf-8")
+        text = content.decode("utf-8-sig")
     except UnicodeDecodeError:
         text = content.decode("latin-1")
 
@@ -233,8 +238,12 @@ async def import_clientes_csv(
 
     importados = 0
     erros = []
+    row_num = 1
 
     for row_num, row in enumerate(reader, start=2):
+        if row_num - 1 > MAX_CSV_ROWS:
+            erros.append(f"Limite de {MAX_CSV_ROWS} linhas por importação atingido; o restante foi ignorado.")
+            break
         razao_social = row.get("razao_social") or row.get("nome") or row.get("Nome") or ""
         if not razao_social or not razao_social.strip():
             erros.append(f"Linha {row_num}: razão social/nome obrigatório")
@@ -265,5 +274,5 @@ async def import_clientes_csv(
         "ok": True,
         "importados": importados,
         "erros": erros,
-        "total_linhas": row_num - 1 if reader.line_num else 0,
+        "total_linhas": max(row_num - 1, 0),
     }

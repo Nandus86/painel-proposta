@@ -287,8 +287,8 @@
               v-model="form.senha"
               :type="showPassword ? 'text' : 'password'"
               required
-              placeholder="Mínimo 6 caracteres"
-              minlength="6"
+              placeholder="Mínimo 8 caracteres"
+              minlength="8"
               class="w-full"
             />
             <i
@@ -306,7 +306,7 @@
               v-model="form.senha"
               :type="showPassword ? 'text' : 'password'"
               placeholder="Nova senha (deixe vazio para não alterar)"
-              minlength="6"
+              minlength="8"
               class="w-full"
             />
             <i
@@ -339,6 +339,7 @@
 </template>
 
 <script setup>
+import { errorMessage } from '@/utils/errors'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from 'primevue/usetoast'
@@ -508,7 +509,7 @@ async function fetchUsuarios() {
     toast.add({
       severity: 'error',
       summary: 'Erro',
-      detail: e.response?.data?.detail || 'Erro ao carregar usuários',
+      detail: errorMessage(e, 'Erro ao carregar usuários'),
       life: 3000,
     })
   } finally {
@@ -584,7 +585,7 @@ async function handleSave() {
     await fetchQuota()
     await fetchUsuarios()
   } catch (e) {
-    const errorMsg = e.response?.data?.detail || 'Erro ao salvar usuário'
+    const errorMsg = errorMessage(e, 'Erro ao salvar usuário')
     toast.add({
       severity: 'error',
       summary: 'Erro ao Salvar',
@@ -611,7 +612,7 @@ async function toggleUserStatus(user) {
     await fetchQuota()
     await fetchUsuarios()
   } catch (e) {
-    const msg = e.response?.data?.detail || 'Erro ao alternar status do usuário'
+    const msg = errorMessage(e, 'Erro ao alternar status do usuário')
     toast.add({ severity: 'error', summary: 'Atenção', detail: msg, life: 4000 })
     if (e.response?.status === 402) {
       showPlanosModal.value = true
@@ -642,7 +643,7 @@ function confirmDelete(user) {
         toast.add({
           severity: 'error',
           summary: 'Erro',
-          detail: e.response?.data?.detail || 'Erro ao desativar',
+          detail: errorMessage(e, 'Erro ao desativar'),
           life: 3000,
         })
       }

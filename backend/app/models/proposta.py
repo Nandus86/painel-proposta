@@ -2,7 +2,7 @@ import uuid
 import enum
 from typing import Optional, List
 from datetime import datetime
-from sqlalchemy import String, Text, DateTime, ForeignKey, func, Integer, Numeric, Enum
+from sqlalchemy import String, Text, DateTime, ForeignKey, func, Integer, Numeric, Enum, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
@@ -19,6 +19,10 @@ class StatusProposta(str, enum.Enum):
 
 class Proposta(Base):
     __tablename__ = "propostas"
+    __table_args__ = (
+        Index("ix_propostas_empresa_numero", "empresa_id", "numero"),
+        Index("ix_propostas_empresa_created", "empresa_id", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -80,6 +84,9 @@ class Proposta(Base):
 
 class ItemProposta(Base):
     __tablename__ = "itens_proposta"
+    __table_args__ = (
+        Index("ix_itens_proposta_proposta", "proposta_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4

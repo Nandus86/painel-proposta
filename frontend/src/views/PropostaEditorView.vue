@@ -11,7 +11,7 @@
       </div>
       <div class="header-actions flex gap-2">
         <Button label="Visualizar Online" icon="pi pi-link" severity="info" text outlined @click="previewProposta" />
-        <Tag :value="proposta.status.toUpperCase()" :severity="getStatusSeverity(proposta.status)" class="status-tag" />
+        <Tag :value="statusLabel('proposta', proposta.status)" :severity="statusSeverity('proposta', proposta.status)" class="status-tag" />
       </div>
     </div>
 
@@ -298,10 +298,12 @@
 </template>
 
 <script setup>
+import { errorMessage } from '@/utils/errors'
+import { statusLabel, statusSeverity, statusOptions as buildStatusOptions } from '@/utils/status';
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
-import { marked } from 'marked';
+import { renderMarkdown } from '@/utils/markdown';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
@@ -346,13 +348,7 @@ const proposta = ref({
   items: []
 });
 
-const statusOptions = [
-  { label: 'Rascunho', value: 'rascunho' },
-  { label: 'Enviada', value: 'enviada' },
-  { label: 'Aceita', value: 'aceita' },
-  { label: 'Recusada', value: 'recusada' },
-  { label: 'Expirada', value: 'expirada' }
-];
+const statusOptions = buildStatusOptions('proposta');
 
 const clientes = ref([]);
 const servicos = ref([]);
@@ -503,7 +499,7 @@ const generateWithIA = async () => {
     await propostasStore.fetchAiCredits();
     toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Texto gerado!', life: 3000 });
   } catch (error) {
-    const errorMsg = error.response?.data?.detail || 'Falha na IA.';
+    const errorMsg = errorMessage(error, 'Falha na IA.');
     toast.add({ severity: 'error', summary: 'Erro', detail: errorMsg, life: 4000 });
   } finally {
     generatingIA.value = false;
@@ -561,15 +557,6 @@ const saveProposta = async () => {
 
 const goBack = () => router.back();
 
-const getStatusSeverity = (status) => {
-  switch (status) {
-    case 'rascunho': return 'info';
-    case 'enviada': return 'warning';
-    case 'aceita': return 'success';
-    case 'recusada': return 'danger';
-    default: return 'info';
-  }
-};
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 const formatDatePreview = (d) => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -578,7 +565,7 @@ const clienteAtual = computed(() => clientes.value.find(c => c.id === proposta.v
 
 const parsedObservacoes = computed(() => {
   if (!proposta.value.observacoes) return '';
-  return marked(proposta.value.observacoes);
+  return renderMarkdown(proposta.value.observacoes);
 });
 
 const backendUrl = (path) => {

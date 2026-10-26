@@ -11,7 +11,7 @@
       </div>
       <div class="header-actions flex gap-2">
         <Button label="Visualizar Online" icon="pi pi-link" severity="info" text outlined @click="previewOrcamento" />
-        <Tag :value="orcamento.status.toUpperCase()" :severity="getStatusSeverity(orcamento.status)" class="status-tag" />
+        <Tag :value="statusLabel('orcamento', orcamento.status)" :severity="statusSeverity('orcamento', orcamento.status)" class="status-tag" />
       </div>
     </div>
 
@@ -113,6 +113,7 @@
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue';
+import { statusLabel, statusSeverity, statusOptions as buildStatusOptions } from '@/utils/status';
 import { useRouter, useRoute } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
@@ -145,13 +146,7 @@ const orcamento = ref({
   items: []
 });
 
-const statusOptions = [
-  { label: 'Rascunho', value: 'rascunho' },
-  { label: 'Enviada', value: 'enviada' },
-  { label: 'Aceita', value: 'aceita' },
-  { label: 'Recusada', value: 'recusada' },
-  { label: 'Expirada', value: 'expirada' }
-];
+const statusOptions = buildStatusOptions('orcamento');
 
 const clientes = ref([]);
 const servicos = ref([]);
@@ -260,15 +255,6 @@ const saveOrcamento = async () => {
 
 const goBack = () => router.back();
 
-const getStatusSeverity = (status) => {
-  switch (status) {
-    case 'rascunho': return 'info';
-    case 'enviada': return 'warning';
-    case 'aceita': return 'success';
-    case 'recusada': return 'danger';
-    default: return 'info';
-  }
-};
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 

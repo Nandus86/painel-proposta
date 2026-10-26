@@ -1,0 +1,20 @@
+# Apenas o Postgres para desenvolvimento local (API e frontend rodam fora do Docker).
+#   docker compose -f docker-compose.dev.yml up -d
+#   cd backend && alembic upgrade head && uvicorn app.main:app --reload
+#   cd frontend && npm run dev
+name: painel-proposta-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: painel_proposta
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+
+volumes:
+  pgdata-dev:

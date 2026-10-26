@@ -51,7 +51,7 @@ class Empresa(Base):
     
     # Pagamentos (Stripe/PayTR)
     stripe_publishable_key: Mapped[Optional[str]] = mapped_column(String(255))
-    stripe_secret_key: Mapped[Optional[str]] = mapped_column(String(255))
+    stripe_secret_key: Mapped[Optional[str]] = mapped_column(Text)
     pagamento_modo_teste: Mapped[bool] = mapped_column(default=True, server_default="true")
 
     # Controle SuperAdmin (Assinatura / Acesso)
@@ -73,13 +73,17 @@ class Empresa(Base):
     smtp_host: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     smtp_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     smtp_user: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    smtp_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    smtp_password: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     email_assunto_padrao: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     email_corpo_padrao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     @property
     def has_smtp_password(self) -> bool:
         return bool(self.smtp_password)
+
+    @property
+    def has_stripe_secret_key(self) -> bool:
+        return bool(self.stripe_secret_key)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

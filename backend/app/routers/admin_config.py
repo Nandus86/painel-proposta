@@ -19,8 +19,7 @@ async def get_config(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(require_superuser)
 ):
-    result = await db.execute(select(SistemaConfig))
-    config = result.scalar_one_or_none()
+    config = await db.get(SistemaConfig, 1)
     if not config:
         config = SistemaConfig(id=1)
         db.add(config)
@@ -38,8 +37,7 @@ async def update_config(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(require_superuser)
 ):
-    result = await db.execute(select(SistemaConfig))
-    config = result.scalar_one_or_none()
+    config = await db.get(SistemaConfig, 1)
     if not config:
         config = SistemaConfig(id=1)
         db.add(config)

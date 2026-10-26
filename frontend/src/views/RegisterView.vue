@@ -7,22 +7,22 @@
           <h2>{{ APP_NAME }}</h2>
         </div>
         <div class="testimonial">
-          <p>
-            "Renovações e novos seguros ficavam parados no CRM sem proposta formal. Com um clique levámos tudo para {{ APP_NAME }}, gerámos cotações interativas em lote—a taxa de aceitação subiu tanto que a equipa ainda comenta nos corredores."
-          </p>
-          <span class="author">— Marina S., Diretora comercial, seguros</span>
+          <p>Propostas profissionais em minutos, com a sua marca.</p>
+          <ul class="benefits">
+            <li><i class="pi pi-sparkles"></i> Texto da proposta gerado por IA a partir dos seus modelos</li>
+            <li><i class="pi pi-link"></i> Link para o cliente visualizar e aceitar online</li>
+            <li><i class="pi pi-bell"></i> Aviso quando o cliente abre ou aceita</li>
+            <li><i class="pi pi-file-pdf"></i> PDF pronto para enviar por e-mail ou WhatsApp</li>
+          </ul>
         </div>
       </div>
 
       <!-- Painel Direito (Formulário) -->
       <div class="right-pane">
         <div class="top-actions">
-          <button class="theme-toggle" @click="toggleTheme">
-            <i class="pi pi-moon"></i>
+          <button type="button" class="theme-toggle" :aria-label="isDark ? 'Mudar para tema claro' : 'Mudar para tema escuro'" @click="toggleTheme">
+            <i :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></i>
           </button>
-          <div class="lang-selector">
-            <span>🇵🇹 Português</span>
-          </div>
         </div>
 
         <div class="register-form-container fade-in">
@@ -33,7 +33,7 @@
             <div class="field-row">
               <div class="field">
                 <label>Nome da empresa</label>
-                <InputText v-model="form.empresa" placeholder="Exemplo Lda." required />
+                <InputText v-model="form.empresa" placeholder="Sua Empresa Ltda." required />
               </div>
               <div class="field">
                 <label>Nome completo</label>
@@ -60,21 +60,18 @@
                     <i :class="showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
                   </button>
                 </div>
-                <small class="help-text">Mín. 8 caracteres, 1 maiúscula e 1 número</small>
+                <small class="help-text">Mínimo de 8 caracteres</small>
               </div>
             </div>
 
             <div class="checkbox-group">
-              <div class="checkbox-item">
+              <div v-if="exigeTermos" class="checkbox-item">
                 <Checkbox v-model="form.termos" inputId="termos" :binary="true" />
                 <label for="termos">
-                  Concordo com os <a href="#">Termos de Serviço</a>, <a href="#">Política de Privacidade</a> e <a href="#">Acordo de Processamento de Dados</a>
-                </label>
-              </div>
-              <div class="checkbox-item">
-                <Checkbox v-model="form.marketing" inputId="marketing" :binary="true" />
-                <label for="marketing">
-                  Dicas de utilização e e-mails de marketing apenas da {{ APP_NAME }} (opcional)
+                  Li e concordo com
+                  <template v-if="TERMS_URL">os <a :href="TERMS_URL" target="_blank" rel="noopener">Termos de Uso</a></template>
+                  <template v-if="TERMS_URL && PRIVACY_URL"> e </template>
+                  <template v-if="PRIVACY_URL">a <a :href="PRIVACY_URL" target="_blank" rel="noopener">Política de Privacidade</a></template>
                 </label>
               </div>
             </div>
@@ -86,17 +83,7 @@
               </div>
             </transition>
 
-            <Button type="submit" label="Cadastrar-se" class="register-btn" :loading="loading" />
-            
-            <div class="divider">
-              <span>OU</span>
-            </div>
-
-            <Button type="button" label="Cadastrar-se com Google" class="google-btn" outlined>
-              <template #icon>
-                <i class="pi pi-google" style="color: #ea4335"></i>
-              </template>
-            </Button>
+            <Button type="submit" label="Criar conta" class="register-btn" :loading="loading" />
           </form>
         </div>
       </div>
@@ -111,7 +98,8 @@ import { useAuthStore } from '../stores/auth'
 import InputText from 'primevue/inputtext'
 import Checkbox from 'primevue/checkbox'
 import Button from 'primevue/button'
-import { APP_NAME } from '../config/branding'
+import { APP_NAME, PRIVACY_URL, TERMS_URL } from '../config/branding'
+import { isDarkMode, toggleDarkTheme } from '../utils/theme'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -126,15 +114,18 @@ const form = reactive({
   email: '',
   senha: '',
   termos: false,
-  marketing: false
 })
 
+// O aceite só é exigido quando os documentos legais estão publicados (VITE_TERMS_URL / VITE_PRIVACY_URL)
+const exigeTermos = Boolean(TERMS_URL || PRIVACY_URL)
+const isDark = ref(isDarkMode())
+
 function toggleTheme() {
-  // Lógica de toggle theme no futuro
+  isDark.value = toggleDarkTheme()
 }
 
 async function handleRegister() {
-  if (!form.termos) {
+  if (exigeTermos && !form.termos) {
     error.value = 'Você deve concordar com os termos para continuar.'
     return
   }
@@ -147,12 +138,12 @@ async function handleRegister() {
   error.value = ''
 
   try {
-    await authStore.register(form.nome, form.email, form.senha)
+    await authStore.register(form.nome, form.email, form.senha, form.empresa)
     
     // Após cadastro e login, redirecionar para o quiz de configuração
     router.push('/setup')
   } catch (e) {
-    error.value = e || 'Erro ao registrar. Tente novamente.'
+    error.value = typeof e === 'string' ? e : 'Erro ao registrar. Tente novamente.'
   } finally {
     loading.value = false
   }
@@ -235,13 +226,6 @@ async function handleRegister() {
   font-size: 1.2rem;
 }
 
-.lang-selector {
-  font-size: 0.9rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
 
 .register-form-container {
   max-width: 580px;
@@ -373,42 +357,6 @@ async function handleRegister() {
   background-color: #4f46e5 !important;
 }
 
-.divider {
-  display: flex;
-  align-items: center;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  margin: 0.5rem 0;
-}
-
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.divider span {
-  padding: 0 1rem;
-}
-
-.google-btn {
-  background-color: var(--bg-card) !important;
-  border: 1px solid var(--border-color) !important;
-  color: var(--text-primary) !important;
-  padding: 0.85rem;
-  font-weight: 600;
-  border-radius: 8px;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.google-btn:hover {
-  background-color: var(--bg-card-hover) !important;
-}
 
 .error-message {
   color: #ef4444;
@@ -430,5 +378,25 @@ async function handleRegister() {
   .right-pane {
     padding: 2rem;
   }
+}
+
+.benefits {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  font-size: 0.95rem;
+}
+
+.benefits li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.benefits i {
+  opacity: 0.85;
 }
 </style>

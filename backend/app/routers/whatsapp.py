@@ -110,10 +110,9 @@ async def whatsapp_enviar_proposta(
         db.add(sc)
 
     from app.services.email import build_email_variables, replace_variables
-    from app.config import settings
 
-    frontend = settings.FRONTEND_URL or f"https://{proposta.empresa.subdominio}.{settings.BASE_DOMAIN}" if proposta.empresa.subdominio else settings.FRONTEND_URL
-    link = f"{frontend}/p/{proposta.token_publico}"
+    from app.services.links import build_public_url
+    link = build_public_url(proposta.empresa, proposta.token_publico)
 
     variables = build_email_variables(proposta.empresa, proposta)
     variables["link_proposta"] = link
@@ -123,7 +122,9 @@ async def whatsapp_enviar_proposta(
 
     try:
         await send_text(proposta.empresa, sc, proposta.cliente.telefone, msg_texto)
-        proposta.status = proposta.status  # mantém status
+        from app.models.proposta import StatusProposta
+        if proposta.status == StatusProposta.RASCUNHO:
+            proposta.status = StatusProposta.ENVIADA
         await db.commit()
         return {"message": "Mensagem enviada com sucesso"}
     except ValueError as e:

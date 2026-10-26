@@ -154,8 +154,8 @@ const navItems = computed(() => {
 })
 
 function isActive(path) {
-  if (path === '/') return route.path === '/'
-  return route.path.startsWith(path)
+  if (path === '/' || path === '/admin') return route.path === path
+  return route.path === path || route.path.startsWith(`${path}/`)
 }
 </script>
 

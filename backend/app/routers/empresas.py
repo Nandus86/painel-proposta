@@ -1,20 +1,20 @@
-import os
-import shutil
+import logging
 import uuid
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.usuario import Usuario
-from app.schemas.empresa import EmpresaCreate, EmpresaUpdate, EmpresaResponse, EmpresaAdminUpdate, DominioSetup, DominioVerifyResponse
-from app.schemas.usuario import UsuarioCreate
+from app.schemas.empresa import EmpresaUpdate, EmpresaResponse, EmpresaAdminUpdate, DominioSetup, DominioVerifyResponse, normalizar_documento
 from app.core.dependencies import get_current_user, require_admin, require_superuser
-from app.core.security import get_password_hash
-from app.models.usuario import UserRole
+from app.core.security import encrypt_data, decrypt_data
 from app.config import settings
 from app.services.storage import storage_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/empresas", tags=["Empresas"])
 
@@ -34,47 +34,6 @@ async def concluir_setup(
     await db.commit()
     return {"message": "Setup concluído com sucesso"}
 
-
-
-@router.post("/setup", response_model=EmpresaResponse, status_code=status.HTTP_201_CREATED)
-async def setup_empresa(
-    data: EmpresaCreate,
-    admin_email: str,
-    admin_senha: str,
-    admin_nome: str,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Initial setup: Create company and first admin user.
-    This endpoint is only available when no companies exist.
-    """
-    # Check if any company exists
-    result = await db.execute(select(Empresa).limit(1))
-    if result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Setup já realizado. Use o login para acessar.",
-        )
-
-    # Create empresa
-    empresa = Empresa(**data.model_dump())
-    db.add(empresa)
-    await db.flush()
-
-    # Create admin user
-    admin = Usuario(
-        empresa_id=empresa.id,
-        nome=admin_nome,
-        email=admin_email,
-        senha_hash=get_password_hash(admin_senha),
-        role=UserRole.ADMIN,
-        cargo="Administrador",
-    )
-    db.add(admin)
-
-    await db.flush()
-    await db.refresh(empresa)
-    return EmpresaResponse.model_validate(empresa)
 
 
 @router.get("/me", response_model=EmpresaResponse)
@@ -109,14 +68,29 @@ async def update_my_empresa(
 
     update_data = data.model_dump(exclude_unset=True)
 
+    # Segredos: campo vazio significa "manter o valor atual"
+    for secret_field in ("smtp_password", "stripe_secret_key"):
+        if secret_field in update_data:
+            value = (update_data[secret_field] or "").strip()
+            if value:
+                update_data[secret_field] = encrypt_data(value)
+            else:
+                update_data.pop(secret_field)
 
-    if "smtp_password" in update_data:
-        from app.core.security import encrypt_data
-        smtp_pwd_val = update_data["smtp_password"]
-        if smtp_pwd_val:
-            update_data["smtp_password"] = encrypt_data(smtp_pwd_val)
-        else:
-            update_data["smtp_password"] = None
+    if "cnpj" in update_data:
+        cnpj = normalizar_documento(update_data.pop("cnpj"))
+        if cnpj and cnpj != empresa.cnpj:
+            existing = await db.execute(
+                select(Empresa.id).where(Empresa.cnpj == cnpj, Empresa.id != empresa.id)
+            )
+            if existing.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail="Este CNPJ/CPF já está cadastrado em outra conta.")
+            empresa.cnpj = cnpj
+
+    if "logo_url" in update_data and update_data["logo_url"]:
+        # Só aceita logos enviadas pelo próprio sistema (evita SSRF na geração de PDF)
+        if not storage_service.is_own_url(update_data["logo_url"]):
+            update_data.pop("logo_url")
 
     for field, value in update_data.items():
         setattr(empresa, field, value)
@@ -135,11 +109,6 @@ async def upload_empresa_logo(
     db: AsyncSession = Depends(get_db),
 ):
     """Upload company logo image (MinIO or Local storage)."""
-    if file.content_type and not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Arquivo enviado deve ser uma imagem (PNG, JPG, SVG, WEBP, etc.)",
-        )
 
     result = await db.execute(
         select(Empresa).where(Empresa.id == current_user.empresa_id)
@@ -148,7 +117,10 @@ async def upload_empresa_logo(
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
-    logo_url = await storage_service.upload_file(file, folder="logos")
+    try:
+        logo_url = await storage_service.upload_image(file, folder="logos")
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     empresa.logo_url = logo_url
 
     await db.flush()
@@ -243,7 +215,7 @@ async def verificar_dominio(
                 "tipo": "CNAME",
                 "host": dominio,
                 "valor": base_domain,
-                "descricao": "Aponte seu domínio via CNAME para o domínio base do Painel Proposta."
+                "descricao": "Aponte seu domínio via CNAME para o domínio base da plataforma."
             },
             {
                 "tipo": "TXT",
@@ -261,8 +233,7 @@ async def testar_smtp(
     current_user: Usuario = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.services.email import send_email_sync
-    from asyncio import get_event_loop
+    from app.services.email import send_email_sync, smtp_error_message
 
     result = await db.execute(select(Empresa).where(Empresa.id == current_user.empresa_id))
     empresa = result.scalar_one_or_none()
@@ -276,7 +247,6 @@ async def testar_smtp(
     if not smtp_host or not smtp_port or not smtp_user:
         raise HTTPException(status_code=400, detail="Preencha todos os campos SMTP")
 
-    from app.core.security import encrypt_data, decrypt_data
     pwd_to_use = None
     if data.smtp_password:
         pwd_to_use = data.smtp_password
@@ -290,17 +260,22 @@ async def testar_smtp(
         smtp_port=smtp_port,
         smtp_user=smtp_user,
         smtp_password=encrypt_data(pwd_to_use),
+        email=empresa.email,
+        nome_fantasia=empresa.nome_fantasia,
+        razao_social=empresa.razao_social,
     )
 
-    loop = get_event_loop()
-    await loop.run_in_executor(
-        None,
-        send_email_sync,
-        test_empresa,
-        current_user.email,
-        f"Teste SMTP - {settings.APP_NAME}",
-        "<h2>Teste de envio bem-sucedido!</h2><p>Se você está lendo isso, sua configuração SMTP está funcionando.</p>",
-    )
+    try:
+        await run_in_threadpool(
+            send_email_sync,
+            test_empresa,
+            current_user.email,
+            f"Teste SMTP - {settings.APP_NAME}",
+            "<h2>Teste de envio bem-sucedido!</h2><p>Se você está lendo isso, sua configuração SMTP está funcionando.</p>",
+        )
+    except Exception as e:
+        logger.warning("Teste SMTP falhou para empresa %s: %s", empresa.id, e)
+        raise HTTPException(status_code=400, detail=f"Falha no envio de teste: {smtp_error_message(e)}")
     return {"message": "E-mail de teste enviado. Verifique sua caixa de entrada."}
 
 

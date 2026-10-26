@@ -63,7 +63,7 @@
         
         <Column field="status" header="Status" sortable>
           <template #body="{ data }">
-            <Tag :value="data.status.toUpperCase()" :severity="getStatusSeverity(data.status)" class="status-tag" />
+            <Tag :value="statusLabel('proposta', data.status)" :severity="statusSeverity('proposta', data.status)" class="status-tag" />
           </template>
         </Column>
         
@@ -73,14 +73,16 @@
           </template>
         </Column>
 
-        <Column header="Ações" style="width: 220px">
+        <Column header="Ações" style="width: 300px">
           <template #body="{ data }">
             <div class="flex gap-2">
               <Button icon="pi pi-eye" severity="info" text rounded @click="previewExistingProposta(data)" v-tooltip="'Visualizar'" />
               <Button icon="pi pi-pencil" severity="secondary" text rounded @click="editProposta(data)" v-tooltip="'Editar'" />
+              <Button icon="pi pi-file-pdf" severity="help" text rounded @click="downloadPdf(data)" v-tooltip="'Baixar PDF'" />
               <Button icon="pi pi-link" severity="success" text rounded @click="copyMagicLink(data)" v-tooltip="'Copiar Link Mágico'" />
               <Button icon="pi pi-envelope" severity="secondary" text rounded @click="sendEmail(data)" v-tooltip="'Enviar via E-mail'" />
               <Button icon="pi pi-whatsapp" severity="success" text rounded @click="sendWhatsapp(data)" v-tooltip="'Enviar via WhatsApp'" />
+              <Button icon="pi pi-trash" severity="danger" text rounded @click="confirmDelete(data)" v-tooltip="'Excluir'" />
             </div>
           </template>
         </Column>
@@ -100,9 +102,13 @@
 </template>
 
 <script setup>
+import { errorMessage } from '@/utils/errors'
+import { statusLabel, statusSeverity } from '@/utils/status';
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
+import { downloadFile } from '@/utils/download';
 import Button from 'primevue/button';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
@@ -114,6 +120,7 @@ import api from '@/services/api';
 
 const router = useRouter();
 const toast = useToast();
+const confirm = useConfirm();
 
 const propostas = ref([]);
 const loading = ref(false);
@@ -204,8 +211,33 @@ const previewExistingProposta = (proposta) => {
   window.open(url, '_blank');
 };
 
-const sendProposta = (proposta) => {
-  toast.add({ severity: 'success', summary: 'Enviado', detail: 'Proposta enviada para o cliente!', life: 2000 });
+
+const downloadPdf = async (proposta) => {
+  try {
+    await downloadFile(`/api/propostas/${proposta.id}/pdf`, `proposta_${proposta.numero}.pdf`);
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Não foi possível gerar o PDF.', life: 4000 });
+  }
+};
+
+const confirmDelete = (proposta) => {
+  confirm.require({
+    message: `Excluir a proposta #${proposta.numero} - ${proposta.titulo}? Esta ação não pode ser desfeita.`,
+    header: 'Excluir Proposta',
+    icon: 'pi pi-exclamation-triangle',
+    rejectLabel: 'Cancelar',
+    acceptLabel: 'Excluir',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      try {
+        await api.delete(`/api/propostas/${proposta.id}`);
+        toast.add({ severity: 'success', summary: 'Excluído', detail: 'Proposta excluída com sucesso.', life: 3000 });
+        fetchPropostas();
+      } catch (error) {
+        toast.add({ severity: 'error', summary: 'Erro', detail: errorMessage(error, 'Não foi possível excluir.'), life: 5000 });
+      }
+    },
+  });
 };
 
 const sendEmail = async (proposta) => {
@@ -215,7 +247,7 @@ const sendEmail = async (proposta) => {
     toast.add({ severity: 'success', summary: 'E-mail', detail: 'E-mail enviado com sucesso para o cliente.', life: 3000 });
   } catch (error) {
     console.error('Erro ao enviar e-mail:', error);
-    const msg = error.response?.data?.detail || 'Falha ao enviar o e-mail.';
+    const msg = errorMessage(error, 'Falha ao enviar o e-mail.');
     toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 });
   }
 };
@@ -225,16 +257,6 @@ const sendWhatsapp = (proposta) => {
   window.open(`https://api.whatsapp.com/send?text=${msg}`, '_blank');
 };
 
-const getStatusSeverity = (status) => {
-  switch (status) {
-    case 'rascunho': return 'info';
-    case 'enviada': return 'warning';
-    case 'aceita': return 'success';
-    case 'recusada': return 'danger';
-    case 'expirada': return 'secondary';
-    default: return 'info';
-  }
-};
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);

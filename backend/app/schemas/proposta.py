@@ -7,11 +7,11 @@ from app.models.proposta import StatusProposta
 
 class ItemPropostaBase(BaseModel):
     servico_id: Optional[UUID] = None
-    descricao: str
+    descricao: str = Field(..., min_length=1)
     quantidade: float = 1.0
     preco_unitario: float
     desconto: float = 0.0
-    subtotal: float
+    subtotal: float = 0.0  # recalculado no servidor
     ordem: int = 0
 
 
@@ -28,10 +28,10 @@ class ItemPropostaResponse(ItemPropostaBase):
 
 class PropostaBase(BaseModel):
     cliente_id: UUID
-    titulo: str = Field(..., max_length=255)
+    titulo: str = Field(..., min_length=1, max_length=255)
     status: StatusProposta = StatusProposta.RASCUNHO
     data_validade: Optional[datetime] = None
-    validade_dias: int = 15
+    validade_dias: Optional[int] = Field(None, ge=1, le=365)  # padrão: validade da empresa
     observacoes: Optional[str] = None
     condicoes_pagamento: Optional[str] = None
 
@@ -45,7 +45,7 @@ class PropostaUpdate(BaseModel):
     titulo: Optional[str] = Field(None, max_length=255)
     status: Optional[StatusProposta] = None
     data_validade: Optional[datetime] = None
-    validade_dias: Optional[int] = None
+    validade_dias: Optional[int] = Field(None, ge=1, le=365)
     observacoes: Optional[str] = None
     condicoes_pagamento: Optional[str] = None
     items: Optional[List[ItemPropostaCreate]] = None

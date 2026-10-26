@@ -1,7 +1,7 @@
 <template>
   <header class="topbar glass" :class="{ 'collapsed': collapsed }">
     <div class="topbar-left">
-      <button class="mobile-toggle" @click="$emit('toggleSidebar')">
+      <button class="mobile-toggle" aria-label="Abrir menu" @click="$emit('toggleSidebar')">
         <i class="pi pi-bars"></i>
       </button>
       <div class="page-title">
@@ -10,54 +10,114 @@
     </div>
 
     <div class="topbar-right">
-      <div class="notification-bell" @click="notificationsStore.togglePanel()">
-        <i class="pi pi-bell"></i>
-        <span v-if="notificationsStore.unreadCount > 0" class="notification-badge">{{ notificationsStore.unreadCount }}</span>
-      </div>
-      <div v-if="notificationsStore.showPanel" class="notification-panel glass" @click.stop>
-        <div class="notif-header">
-          <span>Notificações</span>
-          <button class="notif-clear" @click="notificationsStore.markAllRead()">Marcar todas lidas</button>
-        </div>
-        <div class="notif-list" v-if="notificationsStore.notifications.length > 0">
-          <div
-            v-for="n in notificationsStore.notifications"
-            :key="n.id"
-            class="notif-item"
-            :class="{ unread: !n.read }"
-            @click="notificationsStore.markRead(n.id)"
-          >
-            <div class="notif-title">{{ n.title }}</div>
-            <div class="notif-msg">{{ n.message }}</div>
-            <div class="notif-time">{{ formatTime(n.createdAt) }}</div>
+      <div class="notif-wrapper" ref="notifWrapper">
+        <button
+          class="notification-bell"
+          :aria-label="`Notificações (${notificationsStore.unreadCount} não lidas)`"
+          @click="notificationsStore.togglePanel()"
+        >
+          <i class="pi pi-bell"></i>
+          <span v-if="notificationsStore.unreadCount > 0" class="notification-badge">
+            {{ notificationsStore.unreadCount > 9 ? '9+' : notificationsStore.unreadCount }}
+          </span>
+        </button>
+        <div v-if="notificationsStore.showPanel" class="notification-panel glass">
+          <div class="notif-header">
+            <span>Notificações</span>
+            <button v-if="notificationsStore.unreadCount > 0" class="notif-clear" @click="notificationsStore.markAllRead()">
+              Marcar todas como lidas
+            </button>
+          </div>
+          <div class="notif-list" v-if="notificationsStore.notifications.length > 0">
+            <button
+              v-for="n in notificationsStore.notifications"
+              :key="n.id"
+              class="notif-item"
+              :class="{ unread: !n.lida }"
+              @click="openNotification(n)"
+            >
+              <i class="notif-icon" :class="iconFor(n.tipo)"></i>
+              <div class="notif-body">
+                <div class="notif-title">{{ n.titulo }}</div>
+                <div v-if="n.mensagem" class="notif-msg">{{ n.mensagem }}</div>
+                <div class="notif-time">{{ formatTime(n.created_at) }}</div>
+              </div>
+            </button>
+          </div>
+          <div v-else class="notif-empty">
+            <i class="pi pi-inbox"></i>
+            <p>Nenhuma notificação por aqui.</p>
+            <small>Você será avisado quando um cliente abrir ou aceitar uma proposta.</small>
           </div>
         </div>
-        <div v-else class="notif-empty">Nenhuma notificação</div>
       </div>
-      <button class="theme-toggle-btn" @click="handleThemeToggle" :title="isDark ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'">
+
+      <button class="theme-toggle-btn" @click="handleThemeToggle" :title="isDark ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'" :aria-label="isDark ? 'Mudar para tema claro' : 'Mudar para tema escuro'">
         <i :class="isDark ? 'pi pi-moon' : 'pi pi-sun'"></i>
       </button>
-      <span class="topbar-divider">|</span>
-      <div class="welcome-user">
-        Bem-vindo, {{ authStore.user?.nome || 'Usuário' }}
+
+      <div class="user-wrapper" ref="userWrapper">
+        <button class="user-btn" @click="showUserMenu = !showUserMenu" :aria-expanded="showUserMenu" aria-haspopup="menu">
+          <span class="user-avatar">{{ userInitials }}</span>
+          <span class="user-info">
+            <span class="user-name">{{ authStore.user?.nome || 'Usuário' }}</span>
+            <span class="user-role">{{ roleLabel }}</span>
+          </span>
+          <i class="pi pi-chevron-down user-caret"></i>
+        </button>
+        <div v-if="showUserMenu" class="user-menu glass" role="menu">
+          <div class="user-menu-header">
+            <strong>{{ authStore.user?.nome }}</strong>
+            <span>{{ authStore.user?.email }}</span>
+          </div>
+          <button role="menuitem" @click="openPasswordDialog"><i class="pi pi-key"></i> Alterar senha</button>
+          <button v-if="authStore.isAdmin" role="menuitem" @click="goTo('/empresa')"><i class="pi pi-building"></i> Minha empresa</button>
+          <button v-if="authStore.isAdmin" role="menuitem" @click="goTo('/configuracoes')"><i class="pi pi-cog"></i> Configurações</button>
+          <button role="menuitem" class="danger" @click="handleLogout"><i class="pi pi-sign-out"></i> Sair</button>
+        </div>
       </div>
-      <span class="topbar-divider">|</span>
-      <button class="logout-btn" @click="handleLogout">
-        <i class="pi pi-sign-out"></i>
-        <span>Sair</span>
-      </button>
     </div>
+
+    <Dialog v-model:visible="passwordDialog" header="Alterar senha" modal :style="{ width: '420px' }" :breakpoints="{ '480px': '95vw' }">
+      <form class="password-form" @submit.prevent="submitPassword">
+        <div class="field">
+          <label for="senha-atual">Senha atual</label>
+          <Password inputId="senha-atual" v-model="passwordForm.atual" :feedback="false" toggleMask fluid autocomplete="current-password" />
+        </div>
+        <div class="field">
+          <label for="senha-nova">Nova senha</label>
+          <Password inputId="senha-nova" v-model="passwordForm.nova" :feedback="false" toggleMask fluid autocomplete="new-password" />
+          <small>Mínimo de 8 caracteres. As outras sessões abertas serão encerradas.</small>
+        </div>
+        <div class="field">
+          <label for="senha-conf">Confirme a nova senha</label>
+          <Password inputId="senha-conf" v-model="passwordForm.confirmacao" :feedback="false" toggleMask fluid autocomplete="new-password" />
+        </div>
+        <Message v-if="passwordError" severity="error" :closable="false">{{ passwordError }}</Message>
+        <div class="dialog-actions">
+          <Button type="button" label="Cancelar" text @click="passwordDialog = false" />
+          <Button type="submit" label="Salvar" icon="pi pi-check" :loading="savingPassword" />
+        </div>
+      </form>
+    </Dialog>
   </header>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useToast } from 'primevue/usetoast'
+import Dialog from 'primevue/dialog'
+import Password from 'primevue/password'
+import Button from 'primevue/button'
+import Message from 'primevue/message'
 import { useAuthStore } from '../../stores/auth'
 import { useNotificationsStore } from '../../stores/notifications'
 import { isDarkMode, toggleDarkTheme } from '../../utils/theme'
+import api from '../../services/api'
+import { errorMessage } from '@/utils/errors'
 
-const props = defineProps({
+defineProps({
   collapsed: Boolean,
 })
 
@@ -65,18 +125,36 @@ defineEmits(['toggleSidebar'])
 
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 const authStore = useAuthStore()
 const notificationsStore = useNotificationsStore()
 const showUserMenu = ref(false)
 const isDark = ref(isDarkMode())
+const notifWrapper = ref(null)
+const userWrapper = ref(null)
+
+const passwordDialog = ref(false)
+const savingPassword = ref(false)
+const passwordError = ref('')
+const passwordForm = reactive({ atual: '', nova: '', confirmacao: '' })
+
+const ICONS = {
+  visualizada: 'pi pi-eye text-blue-500',
+  aceita: 'pi pi-check-circle text-green-500',
+  vencendo: 'pi pi-clock text-orange-500',
+  vencida: 'pi pi-calendar-times text-red-500',
+}
+
+function iconFor(tipo) {
+  return ICONS[tipo] || 'pi pi-info-circle'
+}
 
 function formatTime(dateStr) {
   const date = new Date(dateStr)
-  const now = new Date()
-  const diff = now - date
+  const diff = Date.now() - date.getTime()
   if (diff < 60000) return 'Agora'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}min atrás`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h atrás`
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} min atrás`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} h atrás`
   return date.toLocaleDateString('pt-BR')
 }
 
@@ -84,24 +162,17 @@ function handleThemeToggle() {
   isDark.value = toggleDarkTheme()
 }
 
-const pageTitle = computed(() => {
-  const titles = {
-    Dashboard: 'Dashboard',
-    Empresa: 'Minha Empresa',
-    Usuarios: 'Usuários',
-    Clientes: 'Clientes',
-  }
-  return titles[route.name] || 'Painel'
-})
+const pageTitle = computed(() => route.meta.title || 'Painel')
 
 const userInitials = computed(() => {
   const name = authStore.user?.nome || ''
   return name
     .split(' ')
+    .filter(Boolean)
     .map((n) => n[0])
     .join('')
     .substring(0, 2)
-    .toUpperCase()
+    .toUpperCase() || '?'
 })
 
 const roleLabel = computed(() => {
@@ -109,25 +180,82 @@ const roleLabel = computed(() => {
   return labels[authStore.user?.role] || ''
 })
 
-function toggleUserMenu() {
-  showUserMenu.value = !showUserMenu.value
+function openNotification(n) {
+  notificationsStore.markRead(n)
+  notificationsStore.closePanel()
+  if (n.link) router.push(n.link)
+}
+
+function goTo(path) {
+  showUserMenu.value = false
+  router.push(path)
+}
+
+function openPasswordDialog() {
+  showUserMenu.value = false
+  passwordForm.atual = ''
+  passwordForm.nova = ''
+  passwordForm.confirmacao = ''
+  passwordError.value = ''
+  passwordDialog.value = true
+}
+
+async function submitPassword() {
+  passwordError.value = ''
+  if (passwordForm.nova.length < 8) {
+    passwordError.value = 'A nova senha deve ter pelo menos 8 caracteres.'
+    return
+  }
+  if (passwordForm.nova !== passwordForm.confirmacao) {
+    passwordError.value = 'As senhas não conferem.'
+    return
+  }
+  savingPassword.value = true
+  try {
+    const { data } = await api.post('/api/auth/alterar-senha', {
+      senha_atual: passwordForm.atual,
+      nova_senha: passwordForm.nova,
+    })
+    localStorage.setItem('access_token', data.access_token)
+    localStorage.setItem('refresh_token', data.refresh_token)
+    passwordDialog.value = false
+    toast.add({ severity: 'success', summary: 'Senha alterada', detail: 'Sua nova senha já está valendo.', life: 4000 })
+  } catch (e) {
+    passwordError.value = errorMessage(e, 'Não foi possível alterar a senha.')
+  } finally {
+    savingPassword.value = false
+  }
 }
 
 function handleClickOutside(e) {
-  showUserMenu.value = false
+  if (userWrapper.value && !userWrapper.value.contains(e.target)) showUserMenu.value = false
+  if (notifWrapper.value && !notifWrapper.value.contains(e.target)) notificationsStore.closePanel()
+}
+
+function handleKeydown(e) {
+  if (e.key === 'Escape') {
+    showUserMenu.value = false
+    notificationsStore.closePanel()
+  }
 }
 
 async function handleLogout() {
+  showUserMenu.value = false
+  notificationsStore.reset()
   await authStore.logout()
   router.push('/login')
 }
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleKeydown)
+  notificationsStore.startPolling()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleKeydown)
+  notificationsStore.stopPolling()
 })
 </script>
 
@@ -206,54 +334,12 @@ html.dark .theme-toggle-btn:hover {
   background: var(--surface-800);
 }
 
-.empresa-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.75rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-sm);
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
 
-.empresa-badge i {
-  font-size: 0.75rem;
-  color: var(--primary-400);
-}
 
-.welcome-user {
-  font-size: 0.85rem;
-  font-weight: 510; /* Linear UI weight */
-  color: var(--text-secondary);
-}
 
-.topbar-divider {
-  color: var(--border-color);
-  margin: 0 0.25rem;
-}
 
-.logout-btn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-weight: 510;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  transition: color var(--transition-fast);
-}
 
-.logout-btn:hover {
-  color: var(--text-primary);
-}
 
-.logout-btn i {
-  font-size: 0.9rem;
-}
 
 .notification-bell {
   position: relative;
@@ -371,11 +457,205 @@ html.dark .theme-toggle-btn:hover {
   .mobile-toggle {
     display: block;
   }
-  .empresa-badge {
+  .user-info,
+  .user-caret {
     display: none;
   }
-  .user-info {
-    display: none;
+  .notification-panel {
+    position: fixed;
+    top: var(--topbar-height);
+    left: 0.5rem;
+    right: 0.5rem;
+    width: auto;
   }
+}
+
+button.notification-bell {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.notif-wrapper,
+.user-wrapper {
+  position: relative;
+}
+
+.notification-panel {
+  max-height: 440px;
+}
+
+button.notif-item {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  font: inherit;
+  color: inherit;
+}
+
+.notif-icon {
+  font-size: 1rem;
+  margin-top: 2px;
+}
+
+.notif-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-empty i {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.notif-empty p {
+  margin: 0 0 0.25rem;
+  color: var(--text-secondary);
+}
+
+.user-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  transition: background var(--transition-fast);
+}
+
+.user-btn:hover {
+  background: var(--surface-100);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+}
+
+.user-name {
+  font-size: 0.85rem;
+  font-weight: 590;
+  color: var(--text-primary);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-role {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.user-caret {
+  font-size: 0.7rem;
+}
+
+.user-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  min-width: 220px;
+  border-radius: var(--border-radius-lg);
+  z-index: 200;
+  padding: 0.35rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-menu-header {
+  display: flex;
+  flex-direction: column;
+  padding: 0.6rem 0.75rem 0.7rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.user-menu-header span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--border-radius-sm);
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.user-menu button:hover {
+  background: var(--surface-100);
+}
+
+.user-menu button.danger {
+  color: var(--accent-red);
+}
+
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.password-form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.password-form label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.password-form small {
+  color: var(--text-muted);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+html.dark .user-btn:hover,
+html.dark .user-menu button:hover {
+  background: var(--surface-800);
 }
 </style>

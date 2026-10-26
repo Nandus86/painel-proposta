@@ -94,7 +94,14 @@ async def delete_categoria(
     if not categoria or categoria.empresa_id != current_user.empresa_id:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
 
-    # TODO: Verify if there are any servicos using this categoria
+    from sqlalchemy import func, select
+    from app.models.servico import Servico
+    em_uso = await db.scalar(select(func.count(Servico.id)).where(Servico.categoria_id == categoria.id))
+    if em_uso:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Esta categoria está em uso por {em_uso} serviço(s). Mova ou exclua os serviços antes.",
+        )
     await db.delete(categoria)
     await db.commit()
     return {"ok": True}

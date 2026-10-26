@@ -186,6 +186,7 @@
 </template>
 
 <script setup>
+import { errorMessage } from '@/utils/errors'
 import { ref, reactive, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -264,7 +265,7 @@ async function handleSave() {
     dialogVisible.value = false
     await fetchClientes()
   } catch (e) {
-    toast.add({ severity: 'error', summary: 'Erro', detail: e.response?.data?.detail || 'Erro ao salvar', life: 3000 })
+    toast.add({ severity: 'error', summary: 'Erro', detail: errorMessage(e, 'Erro ao salvar'), life: 3000 })
   } finally {
     saving.value = false
   }

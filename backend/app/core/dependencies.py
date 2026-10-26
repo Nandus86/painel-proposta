@@ -41,12 +41,24 @@ async def get_current_user(
             detail="Token inválido",
         )
 
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+
     result = await db.execute(
         select(Usuario)
-        .where(Usuario.id == uuid.UUID(user_id))
+        .where(Usuario.id == user_uuid)
         .options(selectinload(Usuario.empresa))
     )
     user = result.scalar_one_or_none()
+
+    if user is not None and payload.get("ver", 0) != (user.token_version or 0):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessão encerrada. Faça login novamente.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     if user is None or not user.ativo:
         raise HTTPException(
@@ -73,7 +85,6 @@ async def require_admin(
     """Dependency that requires admin role."""
     from app.models.usuario import UserRole
     if current_user.role != UserRole.ADMIN:
-        logger.debug(f"require_admin failed: user={current_user.email}, role={repr(current_user.role)}, type={type(current_user.role)}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso restrito a administradores",
@@ -87,7 +98,6 @@ async def require_gerente_or_admin(
     """Dependency that requires gerente or admin role."""
     from app.models.usuario import UserRole
     if current_user.role not in (UserRole.ADMIN, UserRole.GERENTE):
-        logger.debug(f"require_gerente_or_admin failed: user={current_user.email}, role={repr(current_user.role)}, type={type(current_user.role)}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso restrito a gerentes e administradores",
@@ -114,7 +124,7 @@ async def verificar_limite_propostas(
     from app.models.proposta import Proposta
     from datetime import datetime, timezone
 
-    plano = await db.get(Plano, current_user.empresa.plano)
+    plano = await db.get(Plano, (current_user.empresa.plano or "gratuito").lower().strip())
     if not plano or plano.max_propostas_mes is None:
         return
 
@@ -140,7 +150,7 @@ async def verificar_limite_orcamentos(
     from app.models.orcamento import Orcamento
     from datetime import datetime, timezone
 
-    plano = await db.get(Plano, current_user.empresa.plano)
+    plano = await db.get(Plano, (current_user.empresa.plano or "gratuito").lower().strip())
     if not plano or plano.max_propostas_mes is None:
         return
 

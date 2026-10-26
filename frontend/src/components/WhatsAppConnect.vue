@@ -46,6 +46,7 @@
 </template>
 
 <script setup>
+import { errorMessage } from '@/utils/errors'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
@@ -125,7 +126,7 @@ async function handleConnect() {
     }
     startPoll()
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Erro ao conectar WhatsApp'
+    error.value = errorMessage(e, 'Erro ao conectar WhatsApp')
   } finally {
     connecting.value = false
   }
@@ -140,7 +141,7 @@ async function handleDisconnect() {
     qr.value = null
     toast.add({ severity: 'info', summary: 'WhatsApp Desconectado', life: 3000 })
   } catch (e) {
-    toast.add({ severity: 'error', summary: 'Erro', detail: e.response?.data?.detail || 'Erro ao desconectar', life: 3000 })
+    toast.add({ severity: 'error', summary: 'Erro', detail: errorMessage(e, 'Erro ao desconectar'), life: 3000 })
   } finally {
     disconnecting.value = false
   }

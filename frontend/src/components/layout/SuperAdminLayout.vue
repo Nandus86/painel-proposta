@@ -2,7 +2,7 @@
   <div class="app-layout">
     <SuperAdminSidebar :collapsed="sidebarCollapsed" @toggle="sidebarCollapsed = !sidebarCollapsed" />
     <div class="app-main" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
-      <AppTopbar @toggle-sidebar="sidebarCollapsed = !sidebarCollapsed" />
+      <AppTopbar :collapsed="sidebarCollapsed" @toggle-sidebar="sidebarCollapsed = !sidebarCollapsed" />
       <main class="app-content">
         <router-view v-slot="{ Component, route }">
           <transition name="page" mode="out-in">

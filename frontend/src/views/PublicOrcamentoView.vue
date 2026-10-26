@@ -16,7 +16,7 @@
     <div v-else class="a4-document bg-white w-full shadow-4 flex flex-column">
       
       <!-- Top Decorative Border -->
-      <div class="doc-top-border"></div>
+      <div class="doc-top-border" :style="{ background: orcamento?.empresa?.cor_marca || 'var(--p-primary-color, #4f46e5)' }"></div>
 
       <div class="doc-content">
         <!-- Header Section -->
@@ -24,7 +24,7 @@
           <div class="header-left max-w-20rem">
             <img v-if="orcamento.empresa.logo_url" :src="backendUrl(orcamento.empresa.logo_url)" alt="Logo" class="max-h-4rem mb-3 object-contain" />
             <h1 class="text-3xl font-bold text-primary m-0 mb-1 line-height-1">{{ orcamento.empresa.nome_fantasia || orcamento.empresa.razao_social }}</h1>
-            <p class="text-500 text-xs font-semibold tracking-wide uppercase m-0 mb-3">Orcamento Comercial</p>
+            <p class="text-500 text-xs font-semibold tracking-wide uppercase m-0 mb-3">Orçamento Comercial</p>
             
             <div class="text-600 text-sm line-height-3">
               <p class="m-0">CNPJ: {{ orcamento.empresa.cnpj }}</p>
@@ -34,7 +34,7 @@
           </div>
           
           <div class="header-right text-right">
-            <Tag :value="orcamento.status.toUpperCase()" :severity="getStatusSeverity(orcamento.status)" class="mb-3 px-3 py-1 font-bold shadow-1" />
+            <Tag :value="publicStatus.label" :severity="publicStatus.severity" class="mb-3 px-3 py-1 font-bold shadow-1" />
             <div class="text-700 text-sm line-height-3">
               <p class="m-0"><strong>Orcamento </strong>#{{ orcamento.numero }}</p>
               <p class="m-0"><strong>Data: </strong>{{ formatDate(orcamento.data_emissao) }}</p>
@@ -52,7 +52,7 @@
           <p class="text-700 m-0 text-sm">CNPJ/CPF: {{ orcamento.cliente.cnpj_cpf }}</p>
         </div>
 
-        <!-- Título da Orcamento -->
+        <!-- Título do Orçamento -->
         <h2 class="text-2xl font-bold text-800 mb-4">{{ orcamento.titulo }}</h2>
 
 
@@ -94,22 +94,22 @@
       <!-- Footer Action Area -->
       <div class="doc-footer surface-50 border-top-1 surface-border">
         
-        <div v-if="orcamento.status === 'rascunho' || orcamento.status === 'enviada'" class="text-center">
-          <h3 class="text-900 font-bold mb-2">Aceite da Orcamento</h3>
+        <div v-if="(orcamento.status === 'rascunho' || orcamento.status === 'enviado') && !orcamento.expirado" class="text-center">
+          <h3 class="text-900 font-bold mb-2">Aprovação do Orçamento</h3>
           <p class="text-600 text-sm mb-4">Ao aprovar, você concorda formalmente com os termos e valores apresentados neste documento.</p>
-          <Button label="APROVAR PROPOSTA" icon="pi pi-check-circle" size="large" class="p-button-success shadow-glow px-6 py-3 font-bold" @click="aceitarOrcamento" :loading="saving" />
+          <Button label="APROVAR ORÇAMENTO" icon="pi pi-check-circle" size="large" class="p-button-success shadow-glow px-6 py-3 font-bold" @click="aceitarOrcamento" :loading="saving" />
         </div>
 
-        <div v-else-if="orcamento.status === 'aceita'" class="text-center">
+        <div v-else-if="orcamento.status === 'aprovado'" class="text-center">
           <i class="pi pi-check-circle text-green-500 text-4xl mb-2"></i>
-          <h3 class="text-green-800 font-bold mb-1">Orcamento Aprovada</h3>
+          <h3 class="text-green-800 font-bold mb-1">Orçamento Aprovado</h3>
           <p class="text-green-700 text-sm m-0">Assinatura digital registrada em {{ formatDate(orcamento.assinatura_data, true) }}</p>
         </div>
 
         <div v-else class="text-center">
           <i class="pi pi-lock text-500 text-4xl mb-2"></i>
-          <h3 class="text-700 font-bold mb-1">Orcamento Fechada</h3>
-          <p class="text-600 text-sm m-0">Este documento não pode mais ser alterado ou aprovado.</p>
+          <h3 class="text-700 font-bold mb-1">{{ orcamento.expirado || orcamento.status === 'vencido' ? 'Orçamento Vencido' : 'Orçamento Encerrado' }}</h3>
+          <p class="text-600 text-sm m-0">{{ orcamento.expirado || orcamento.status === 'vencido' ? 'O prazo de validade deste orçamento terminou. Entre em contato para solicitar uma nova versão.' : 'Este documento não pode mais ser alterado ou aprovado.' }}</p>
         </div>
 
       </div>
@@ -119,6 +119,8 @@
 </template>
 
 <script setup>
+import { errorMessage } from '@/utils/errors'
+import { statusLabel, statusSeverity } from '@/utils/status';
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
@@ -147,7 +149,7 @@ const loadOrcamento = async () => {
     const response = await api.get(`/api/public/orcamentos/${token}`);
     orcamento.value = response.data;
   } catch (err) {
-    error.value = err.response?.data?.detail || "Não foi possível carregar a orcamento.";
+    error.value = errorMessage(err, "Não foi possível carregar o orçamento.");
   } finally {
     loading.value = false;
   }
@@ -157,11 +159,11 @@ const aceitarOrcamento = async () => {
   saving.value = true;
   try {
     const response = await api.post(`/api/public/orcamentos/${token}/aceitar`, { aceite: true });
-    toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Orcamento aprovada com sucesso!', life: 4000 });
-    orcamento.value.status = 'aceita';
+    toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Orçamento aprovado com sucesso!', life: 4000 });
+    orcamento.value.status = 'aprovado';
     orcamento.value.assinatura_data = response.data.assinatura_data;
   } catch (err) {
-    const msg = err.response?.data?.detail || "Erro ao aprovar orcamento.";
+    const msg = errorMessage(err, "Erro ao aprovar o orçamento.");
     toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 });
   } finally {
     saving.value = false;
@@ -169,6 +171,16 @@ const aceitarOrcamento = async () => {
 };
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+// Rótulo do status voltado ao cliente final (rascunho/enviado aparecem como "aguardando")
+const publicStatus = computed(() => {
+  const doc = orcamento.value;
+  if (!doc) return { label: '', severity: 'info' };
+  const pendente = ['rascunho', 'enviada', 'enviado'].includes(doc.status);
+  if (pendente && doc.expirado) return { label: 'Vencido', severity: 'secondary' };
+  if (pendente) return { label: 'Aguardando aprovação', severity: 'warning' };
+  return { label: statusLabel('orcamento', doc.status), severity: statusSeverity('orcamento', doc.status) };
+});
+
 const formatDate = (dateStr, includeTime = false) => {
   if (!dateStr) return '';
   const opts = { day: '2-digit', month: '2-digit', year: 'numeric' };
@@ -179,16 +191,6 @@ const formatDate = (dateStr, includeTime = false) => {
   return new Date(dateStr).toLocaleDateString('pt-BR', opts);
 };
 
-const getStatusSeverity = (status) => {
-  switch (status) {
-    case 'rascunho': return 'info';
-    case 'enviada': return 'warning';
-    case 'aceita': return 'success';
-    case 'recusada': return 'danger';
-    case 'expirada': return 'danger';
-    default: return 'info';
-  }
-};
 
 
 

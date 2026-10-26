@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.database import get_db
 from app.models.empresa import Empresa
-from app.models.usuario import Usuario
+from app.models.usuario import Usuario, UserRole
 from app.models.proposta import Proposta
 from app.models.orcamento import Orcamento
 from app.models.log_admin import LogAdmin
@@ -238,15 +238,20 @@ async def superadmin_empresa_acao(
         admin = await db.execute(
             select(Usuario).where(
                 Usuario.empresa_id == id,
-                Usuario.role == "admin"
-            ).limit(1)
+                Usuario.role == UserRole.ADMIN,
+                Usuario.ativo == True,
+            ).order_by(Usuario.created_at).limit(1)
         )
         admin_user = admin.scalar_one_or_none()
         if admin_user:
             from app.core.security import get_password_hash
-            nova_senha = f"Reset{str(uuid.uuid4())[:8]}!"
+            import secrets
+            nova_senha = f"Reset-{secrets.token_urlsafe(9)}"
             admin_user.senha_hash = get_password_hash(nova_senha)
-            detalhes = {"acao": "resetar_senha_admin", "email": admin_user.email, "nova_senha": nova_senha}
+            # encerra sessões abertas com a senha antiga
+            admin_user.token_version = (admin_user.token_version or 0) + 1
+            # a senha NUNCA é persistida no log, só devolvida uma única vez ao superadmin
+            detalhes = {"acao": "resetar_senha_admin", "email": admin_user.email}
         else:
             raise HTTPException(status_code=404, detail="Nenhum admin encontrado para esta empresa")
     elif acao == "limpar_dados":
@@ -266,7 +271,7 @@ async def superadmin_empresa_acao(
 
     result_data = {"ok": True, "acao": acao, "detalhes": detalhes}
     if acao == "resetar_senha_admin":
-        result_data["nova_senha"] = detalhes.get("nova_senha")
+        result_data["nova_senha"] = nova_senha
 
     return result_data
 

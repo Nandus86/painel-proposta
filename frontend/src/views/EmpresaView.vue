@@ -41,8 +41,8 @@
               <InputText v-model="empresa.nome_fantasia" :disabled="!authStore.isAdmin" />
             </div>
             <div class="field">
-              <label>CNPJ</label>
-              <InputText v-model="empresa.cnpj" disabled />
+              <label>CNPJ / CPF</label>
+              <InputText v-model="empresa.cnpj" :disabled="!authStore.isAdmin" placeholder="00.000.000/0000-00" />
             </div>
             <div class="field">
               <label>Inscrição Estadual</label>
@@ -168,7 +168,7 @@
                 <InputText v-model="empresa.dominio_personalizado" :disabled="!authStore.isAdmin || !dominioProprioPermitido" placeholder="ex: propostas.minhaempresa.com" class="domain-input" />
                 <Button v-if="!dominioProprioPermitido && authStore.isAdmin" label="Premium" icon="pi pi-lock" severity="secondary" text size="small" class="upgrade-hint" />
               </div>
-              <small v-if="!dominioProprioPermitido" class="helper-text warn">Domínio personalizado disponível nos planos Pro e Premium.</small>
+              <small v-if="!dominioProprioPermitido" class="helper-text warn">Domínio personalizado disponível nos planos que incluem domínio próprio.</small>
               <small v-else class="helper-text">Configure um CNAME no seu DNS apontando para {{ ROOT_DOMAIN }}</small>
             </div>
           </div>
@@ -180,21 +180,15 @@
             Integrações
           </h3>
           <div class="form-grid">
-            <div class="field">
-              <label>WhatsApp Conectado</label>
-              <Button :label="empresa.whatsapp_conectado ? 'Conectado' : 'Desconectado'" 
-                      :icon="empresa.whatsapp_conectado ? 'pi pi-check' : 'pi pi-times'" 
-                      :severity="empresa.whatsapp_conectado ? 'success' : 'secondary'"
-                      @click="empresa.whatsapp_conectado = !empresa.whatsapp_conectado" 
-                      :disabled="!authStore.isAdmin" />
-            </div>
-            <div class="field">
-              <label>Telegram Conectado</label>
-              <Button :label="empresa.telegram_conectado ? 'Conectado' : 'Desconectado'" 
-                      :icon="empresa.telegram_conectado ? 'pi pi-check' : 'pi pi-times'" 
-                      :severity="empresa.telegram_conectado ? 'info' : 'secondary'"
-                      @click="empresa.telegram_conectado = !empresa.telegram_conectado" 
-                      :disabled="!authStore.isAdmin" />
+            <div class="field span-2">
+              <label>WhatsApp</label>
+              <div class="whatsapp-status">
+                <Tag
+                  :severity="empresa.whatsapp_status === 'connected' ? 'success' : 'secondary'"
+                  :value="empresa.whatsapp_status === 'connected' ? `Conectado${empresa.whatsapp_numero ? ' · ' + empresa.whatsapp_numero : ''}` : 'Não conectado'"
+                />
+                <router-link to="/integracoes" class="manage-link">Gerenciar conexão <i class="pi pi-arrow-right"></i></router-link>
+              </div>
             </div>
             <div class="field span-2">
               <label>Stripe Publishable Key</label>
@@ -202,7 +196,13 @@
             </div>
             <div class="field span-2">
               <label>Stripe Secret Key</label>
-              <InputText v-model="empresa.stripe_secret_key" :disabled="!authStore.isAdmin" placeholder="sk_..." />
+              <InputText
+                v-model="empresa.stripe_secret_key"
+                type="password"
+                autocomplete="new-password"
+                :disabled="!authStore.isAdmin"
+                :placeholder="empresa.has_stripe_secret_key ? '•••••••• (salva e criptografada)' : 'sk_...'"
+              />
             </div>
             <div class="field span-2" style="display: flex; flex-direction: row; gap: 10px; align-items: center;">
               <Checkbox v-model="empresa.pagamento_modo_teste" :binary="true" inputId="modoTeste" :disabled="!authStore.isAdmin" />
@@ -239,6 +239,8 @@ import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import Checkbox from 'primevue/checkbox'
+import Tag from 'primevue/tag'
+import { errorMessage } from '@/utils/errors'
 import api from '../services/api'
 import { assetUrl } from '../utils/assetUrl'
 import { ROOT_DOMAIN } from '../config/branding'
@@ -289,6 +291,8 @@ async function handleLogoUpload(event) {
 onMounted(async () => {
   try {
     const { data } = await api.get('/api/empresas/me')
+    // CNPJ provisório gerado no cadastro não é exibido
+    if (data.cnpj && /^(TMP|ADM)-/.test(data.cnpj)) data.cnpj = ''
     empresa.value = data
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Erro', detail: 'Erro ao carregar empresa', life: 3000 })
@@ -298,22 +302,20 @@ onMounted(async () => {
 async function handleSave() {
   saving.value = true
   try {
-    const { data } = await api.put('/api/empresas/me', empresa.value)
-    empresa.value = data
-
-    if (empresa.value.subdominio || empresa.value.dominio_personalizado) {
-      await api.put('/api/empresas/me/dominio', {
-        subdominio: empresa.value.subdominio,
-        dominio_personalizado: empresa.value.dominio_personalizado
-      })
+    const dominio = {
+      subdominio: empresa.value.subdominio || '',
+      dominio_personalizado: empresa.value.dominio_personalizado || '',
     }
+    await api.put('/api/empresas/me', empresa.value)
+    const { data } = await api.put('/api/empresas/me/dominio', dominio)
+    if (data.cnpj && /^(TMP|ADM)-/.test(data.cnpj)) data.cnpj = ''
+    empresa.value = data
 
     toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Empresa atualizada', life: 3000 })
 
     await authStore.fetchUser()
   } catch (e) {
-    const msg = e.response?.data?.detail || 'Erro ao salvar'
-    toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 5000 })
+    toast.add({ severity: 'error', summary: 'Erro', detail: errorMessage(e, 'Erro ao salvar'), life: 6000 })
   } finally {
     saving.value = false
   }
@@ -496,5 +498,23 @@ async function handleSave() {
 .upgrade-hint {
   margin-left: 0.5rem;
   white-space: nowrap;
+}
+
+.whatsapp-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.manage-link {
+  font-size: 0.85rem;
+  color: var(--primary-500);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.manage-link:hover {
+  text-decoration: underline;
 }
 </style>

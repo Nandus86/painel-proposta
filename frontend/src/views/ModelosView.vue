@@ -86,6 +86,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, nextTick } from 'vue'
+import { htmlToMarkdown, isVariableTag, markdownToHtml } from '@/utils/varEditor'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
@@ -106,7 +107,6 @@ const VAR_COLORS = {
   custom: '#a855f7',
 }
 
-const TAG_RE = /\{\{[a-z][a-z0-9_]*\}\}/g
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -133,27 +133,7 @@ async function fetchModelos() {
   }
 }
 
-function markdownToHtml(text) {
-  if (!text) return ''
-  return text.replace(TAG_RE, (match) => {
-    const inner = match.slice(2, -2)
-    return `<span class="var-badge" contenteditable="false" data-tag="${match}" data-inner="${inner}" style="background:rgba(59,130,246,0.12);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);font-weight:600;border-radius:4px;padding:0 6px;margin:0 1px;font-family:monospace;font-size:0.85em;cursor:default;display:inline-block;white-space:nowrap;">${match}</span>`
-  })
-}
 
-function htmlToMarkdown() {
-  if (!editorRef.value) return ''
-  let html = editorRef.value.innerHTML
-
-  html = html.replace(/<span[^>]*data-tag="([^"]*)"[^>]*>.*?<\/span>/g, (_, tag) => tag)
-
-  html = html.replace(/<br\s*\/?>/gi, '\n')
-  html = html.replace(/<div>/gi, '').replace(/<\/div>/gi, '\n')
-  html = html.replace(/<\/p>/gi, '\n')
-  html = html.replace(/<[^>]*>/g, '')
-
-  return html.replace(/\n{3,}/g, '\n\n').trim()
-}
 
 function setEditorContent(markdown) {
   if (!editorRef.value) return
@@ -222,7 +202,7 @@ function insertVariable(tag) {
 function onDrop(event) {
   event.preventDefault()
   const tag = event.dataTransfer.getData('text/plain')
-  if (tag && TAG_RE.test(tag)) {
+  if (tag && isVariableTag(tag)) {
     editorRef.value.focus()
 
     const x = event.clientX
@@ -241,7 +221,7 @@ function onDrop(event) {
 }
 
 function onEditorInput() {
-  form.conteudo = htmlToMarkdown()
+  form.conteudo = htmlToMarkdown(editorRef.value)
 }
 
 function onPaste(event) {

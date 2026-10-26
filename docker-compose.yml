@@ -1,52 +1,94 @@
+# Stack de produção. Configure tudo no arquivo .env (copie de .env.example).
+#
+#   docker compose up -d --build                  # sem HTTPS próprio (atrás de outro proxy/Cloudflare)
+#   docker compose --profile https up -d --build  # com HTTPS automático (Caddy + Let's Encrypt)
+
+name: painel-proposta
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   db:
     image: postgres:16-alpine
-    container_name: painel-proposta-db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: painel_proposta
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-painel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-painel_proposta}
+      TZ: America/Sao_Paulo
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
-      retries: 15
-      start_period: 60s
+      retries: 20
+      start_period: 30s
+    logging: *default-logging
+    # Sem "ports": o banco só é acessível pela rede interna do Docker
 
   backend:
-    build: 
+    build:
       context: ./backend
-      dockerfile: Dockerfile
-    container_name: painel-proposta-backend
+    restart: unless-stopped
     env_file:
-      - path: ./backend/.env
-        required: false
+      - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/painel_proposta
-      - DATABASE_URL_SYNC=postgresql+psycopg://postgres:postgres@db:5432/painel_proposta
-    ports:
-      - "8000:8000"
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-painel}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-painel_proposta}
+      DATABASE_URL_SYNC: postgresql+psycopg://${POSTGRES_USER:-painel}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-painel_proposta}
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
+    logging: *default-logging
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-    container_name: painel-proposta-frontend
+      args:
+        VITE_API_URL: ""
+        VITE_APP_NAME: ${APP_NAME:-Dekto}
+        VITE_ROOT_DOMAIN: ${BASE_DOMAIN:-dekto.com}
+        VITE_TERMS_URL: ${TERMS_URL:-}
+        VITE_PRIVACY_URL: ${PRIVACY_URL:-}
+    restart: unless-stopped
+    environment:
+      BACKEND_UPSTREAM: backend:8000
+      SERVER_NAME: _
+    ports:
+      # Com o perfil "https", use FRONTEND_BIND=127.0.0.1:8080 para o Caddy ficar com as portas 80/443
+      - "${FRONTEND_BIND:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    logging: *default-logging
+
+  caddy:
+    image: caddy:2.8-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-}
     ports:
       - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
-      - backend
-    environment:
-      - VITE_API_URL=
-      - VITE_APP_NAME=Dekto
-      - VITE_ROOT_DOMAIN=dekto.com
+      - frontend
+    logging: *default-logging
 
 volumes:
   pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

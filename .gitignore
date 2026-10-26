@@ -12,6 +12,11 @@ venv/
 # Environment
 .env
 *.env.local
+!.env.example
+
+# Dados locais / backups
+backups/
+backend/uploads/
 
 # IDE
 .vscode/

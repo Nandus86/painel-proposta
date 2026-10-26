@@ -77,7 +77,7 @@ async def get_dashboard_metrics(
         func.sum(Proposta.valor_total)
     ).where(
         Proposta.empresa_id == current_user.empresa_id,
-        Proposta.status.in_([StatusProposta.ENVIADA, StatusProposta.EM_ANALISE])
+        Proposta.status == StatusProposta.ENVIADA
     )
     if dt_inicio:
         stmt_pend_p = stmt_pend_p.where(Proposta.created_at >= dt_inicio)

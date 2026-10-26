@@ -170,6 +170,7 @@
 </template>
 
 <script setup>
+import { errorMessage } from '@/utils/errors'
 import { ref, watch, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from 'primevue/usetoast'
@@ -317,7 +318,7 @@ async function handleSelectPlan(plano) {
     emit('plano-alterado', plano)
     emit('update:visible', false)
   } catch (e) {
-    const msg = e.response?.data?.detail || 'Erro ao alterar plano'
+    const msg = errorMessage(e, 'Erro ao alterar plano')
     toast.add({
       severity: 'error',
       summary: 'Erro na Troca de Plano',

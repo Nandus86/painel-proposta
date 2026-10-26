@@ -76,7 +76,8 @@ const navItems = computed(() => {
 })
 
 function isActive(path) {
-  return route.path.startsWith(path)
+  if (path === '/admin') return route.path === '/admin'
+  return route.path === path || route.path.startsWith(`${path}/`)
 }
 </script>
 
@@ -290,12 +291,10 @@ function isActive(path) {
 }
 
 .sidebar.collapsed .sidebar-header {
+  flex-direction: column;
   justify-content: center;
+  gap: 0.5rem;
   padding: 1rem 0.5rem;
-}
-
-.sidebar.collapsed .toggle-btn {
-  display: none;
 }
 
 .sidebar.collapsed .nav-item.active::before {

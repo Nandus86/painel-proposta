@@ -1,11 +1,16 @@
 import base64
 import hashlib
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from cryptography.fernet import Fernet
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+# passlib emite um aviso inofensivo com bcrypt>=4.1 ("error reading bcrypt version")
+logging.getLogger("passlib").setLevel(logging.ERROR)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -15,7 +20,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return pwd_context.verify(plain_password, hashed_password)
     except Exception:
         import bcrypt as bcrypt_lib
-        return bcrypt_lib.checkpw(plain_password.encode(), hashed_password.encode())
+        try:
+            return bcrypt_lib.checkpw(plain_password.encode(), hashed_password.encode())
+        except Exception:
+            return False
 
 
 def get_password_hash(password: str) -> str:
@@ -62,7 +70,7 @@ def encrypt_data(data: str) -> str:
         f = get_fernet()
         return f.encrypt(data.encode()).decode()
     except Exception as e:
-        print(f"Erro ao criptografar dados: {e}")
+        logger.error("Erro ao criptografar dados: %s", e)
         return ""
 
 
@@ -74,5 +82,30 @@ def decrypt_data(token: str) -> str:
         f = get_fernet()
         return f.decrypt(token.encode()).decode()
     except Exception as e:
-        print(f"Erro ao descriptografar dados: {e}")
+        logger.error("Erro ao descriptografar dados (SECRET_KEY foi alterada?): %s", e)
         return ""
+
+
+def _password_fingerprint(senha_hash: str) -> str:
+    return hashlib.sha256(f"{senha_hash}:{settings.SECRET_KEY}".encode()).hexdigest()[:24]
+
+
+def create_password_reset_token(user) -> str:
+    """Token de redefinição de senha: expira rápido e deixa de valer assim que a senha muda (uso único)."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES)
+    payload = {
+        "sub": str(user.id),
+        "type": "reset",
+        "ph": _password_fingerprint(user.senha_hash),
+        "exp": expire,
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def password_reset_token_valid(payload: Optional[dict], user) -> bool:
+    return bool(
+        payload
+        and payload.get("type") == "reset"
+        and user is not None
+        and payload.get("ph") == _password_fingerprint(user.senha_hash)
+    )

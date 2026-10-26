@@ -72,33 +72,24 @@ const categoriasFiltradas = computed(() => {
     datas: 'Datas',
   }
 
+  const termo = search.value.toLowerCase()
+  const combina = (v) => termo === '' || v.tag.toLowerCase().includes(termo) || v.nome.toLowerCase().includes(termo)
+
   Object.entries(catNames).forEach(([key, nome]) => {
-    const sistema = sistemaVars.value.filter(v =>
-      v.categoria === key &&
-      (search.value === '' ||
-       v.tag.toLowerCase().includes(search.value.toLowerCase()) ||
-       v.nome.toLowerCase().includes(search.value.toLowerCase()))
-    )
-    const custom = customVars.value.filter(v =>
-      key === 'itens' &&
-      (search.value === '' ||
-       v.tag.toLowerCase().includes(search.value.toLowerCase()) ||
-       v.nome.toLowerCase().includes(search.value.toLowerCase()))
-    )
-
-    const all = [...sistema, ...custom.map(c => ({ ...c, categoria: key }))]
-
-    if (all.length > 0 || search.value === '') {
-      cats.push({ key, nome, vars: all, defaultExpanded: search.value !== '' || all.length <= 5 })
+    const vars = sistemaVars.value.filter((v) => v.categoria === key && combina(v))
+    if (vars.length > 0 || termo === '') {
+      cats.push({ key, nome, vars, defaultExpanded: termo !== '' || vars.length <= 5 })
     }
   })
 
-  if (customVars.value.length > 0 && search.value === '') {
+  // Variáveis customizadas aparecem uma única vez, na própria categoria
+  const custom = customVars.value.filter(combina)
+  if (custom.length > 0) {
     cats.push({
       key: 'custom',
       nome: 'Customizadas',
-      vars: customVars.value.map(c => ({ ...c, categoria: 'custom' })),
-      defaultExpanded: true
+      vars: custom.map((c) => ({ ...c, categoria: 'custom' })),
+      defaultExpanded: true,
     })
   }
 

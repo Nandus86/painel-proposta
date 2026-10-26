@@ -579,6 +579,7 @@
 </template>
 
 <script setup>
+import { errorMessage } from '@/utils/errors'
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
@@ -726,7 +727,7 @@ async function handleVerifyDomain() {
     await api.post('/api/empresas/me/dominio/verificar')
     alert('Verificação de domínio solicitada com sucesso!')
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Erro ao solicitar verificação de domínio.'
+    error.value = errorMessage(e, 'Erro ao solicitar verificação de domínio.')
   }
 }
 
@@ -743,7 +744,7 @@ async function handleTestSmtp() {
     })
     smtpTestOk.value = true
   } catch (e) {
-    smtpTestError.value = e.response?.data?.detail || 'Falha ao testar conexão SMTP.'
+    smtpTestError.value = errorMessage(e, 'Falha ao testar conexão SMTP.')
   } finally {
     testingSmtp.value = false
   }
@@ -829,7 +830,7 @@ async function finishSetup() {
     if (authStore.checkSetupStatus) await authStore.checkSetupStatus()
     router.push('/')
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Erro ao concluir setup.'
+    error.value = errorMessage(e, 'Erro ao concluir setup.')
   } finally {
     loading.value = false
   }

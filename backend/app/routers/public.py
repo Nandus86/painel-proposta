@@ -1,231 +1,216 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-from pydantic import BaseModel
-from datetime import datetime, timezone
+"""Rotas públicas (sem login) usadas pelo cliente final para ver e aceitar documentos."""
 import uuid
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from pydantic import BaseModel
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
+from app.models.orcamento import Orcamento, StatusOrcamento
 from app.models.proposta import Proposta, StatusProposta
-from app.models.empresa import Empresa
+from app.schemas.empresa import documento_publico
+from app.services import email as email_service
+from app.services.notificacoes import descrever_documento, notificar
+from app.services.pdf import format_brl
+from app.config import settings
 
 router = APIRouter(prefix="/api/public/propostas", tags=["Public"])
+orcamento_router = APIRouter(prefix="/api/public/orcamentos", tags=["Public"])
 
-@router.get("/{token}")
-async def get_public_proposta(token: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    """Busca uma proposta pelo token público para visualização do cliente."""
-    result = await db.execute(
-        select(Proposta)
-        .options(selectinload(Proposta.items), selectinload(Proposta.empresa), selectinload(Proposta.cliente))
-        .where(Proposta.token_publico == token)
-    )
-    proposta = result.scalar_one_or_none()
 
-    if not proposta:
-        raise HTTPException(status_code=404, detail="Proposta não encontrada ou link inválido.")
+class AceiteRequest(BaseModel):
+    aceite: bool
 
-    if not proposta.empresa.ativo:
-        raise HTTPException(status_code=404, detail="Proposta não encontrada ou link inválido.")
 
-    # Increment view count atomically
-    await db.execute(
-        select(Proposta).where(Proposta.token_publico == token)
-    )
-    proposta.visualizacoes = (proposta.visualizacoes or 0) + 1
-    await db.commit()
-    await db.refresh(proposta)
+def _client_ip(request: Request) -> str:
+    # O uvicorn roda com --proxy-headers: request.client já é o IP real repassado pelo nginx
+    return (request.client.host if request.client else "desconhecido")[:45]
 
-    # Retorna dados limpos sem expor informações sensíveis do backend (como IDs internos)
+
+def _expirado(doc) -> bool:
+    val = doc.data_validade
+    if not val:
+        return False
+    if val.tzinfo is None:
+        val = val.replace(tzinfo=timezone.utc)
+    return val < datetime.now(timezone.utc)
+
+
+def _serialize(doc) -> dict:
+    empresa, cliente = doc.empresa, doc.cliente
     return {
-        "titulo": proposta.titulo,
-        "numero": proposta.numero,
-        "status": proposta.status,
-        "data_emissao": proposta.data_emissao,
-        "data_validade": proposta.data_validade,
-        "validade_dias": proposta.validade_dias,
-        "valor_total": proposta.valor_total,
-        "observacoes": proposta.observacoes,
-        "condicoes_pagamento": proposta.condicoes_pagamento,
-        "assinatura_data": proposta.assinatura_data,
+        "titulo": doc.titulo,
+        "numero": doc.numero,
+        "status": doc.status,
+        "expirado": _expirado(doc),
+        "data_emissao": doc.data_emissao,
+        "data_validade": doc.data_validade,
+        "validade_dias": doc.validade_dias,
+        "valor_total": doc.valor_total,
+        "observacoes": doc.observacoes,
+        "condicoes_pagamento": doc.condicoes_pagamento,
+        "assinatura_data": doc.assinatura_data,
         "empresa": {
-            "razao_social": proposta.empresa.razao_social,
-            "nome_fantasia": proposta.empresa.nome_fantasia,
-            "cnpj": proposta.empresa.cnpj,
-            "logo_url": proposta.empresa.logo_url,
-            "email": proposta.empresa.email,
-            "telefone": proposta.empresa.telefone
+            "razao_social": empresa.razao_social,
+            "nome_fantasia": empresa.nome_fantasia,
+            "cnpj": documento_publico(empresa.cnpj),
+            "logo_url": empresa.logo_url,
+            "email": empresa.email,
+            "telefone": empresa.telefone,
+            "cor_marca": empresa.cor_marca,
         },
         "cliente": {
-            "razao_social": proposta.cliente.razao_social,
-            "cnpj_cpf": proposta.cliente.cnpj or proposta.cliente.cpf
+            "razao_social": cliente.razao_social,
+            "cnpj_cpf": cliente.cnpj or cliente.cpf,
         },
         "items": [
             {
                 "descricao": item.descricao,
                 "quantidade": item.quantidade,
                 "preco_unitario": item.preco_unitario,
-                "subtotal": item.subtotal
-            } for item in proposta.items
-        ]
+                "desconto": item.desconto,
+                "subtotal": item.subtotal,
+            }
+            for item in sorted(doc.items, key=lambda i: i.ordem or 0)
+        ],
     }
 
-class AceitarPropostaRequest(BaseModel):
-    aceite: bool
+
+async def _load(db: AsyncSession, Model, token: uuid.UUID, nao_encontrado: str):
+    result = await db.execute(
+        select(Model)
+        .options(
+            selectinload(Model.items),
+            selectinload(Model.empresa),
+            selectinload(Model.cliente),
+            selectinload(Model.usuario),
+        )
+        .where(Model.token_publico == token)
+    )
+    doc = result.scalar_one_or_none()
+    if not doc or not doc.empresa.ativo:
+        raise HTTPException(status_code=404, detail=nao_encontrado)
+    return doc
+
+
+async def _registrar_visualizacao(db: AsyncSession, Model, doc) -> None:
+    # Lido antes do UPDATE: o SQLAlchemy sincroniza o objeto em memória após a atualização
+    primeira_visualizacao = not doc.visualizacoes
+    # Incremento atômico no banco (não perde contagem com acessos simultâneos)
+    await db.execute(
+        update(Model).where(Model.id == doc.id).values(visualizacoes=Model.visualizacoes + 1)
+    )
+    if primeira_visualizacao:
+        rotulo, link = descrever_documento(doc)
+        await notificar(
+            db, empresa_id=doc.empresa_id, usuario_id=doc.usuario_id, tipo="visualizada",
+            titulo=f"{doc.cliente.razao_social} abriu {rotulo.lower()}",
+            mensagem=f"Primeira visualização pelo cliente: \"{doc.titulo}\".",
+            link=link, referencia_id=doc.id, unica=True,
+        )
+    await db.commit()
+
+
+async def _registrar_aceite(db: AsyncSession, doc, background: BackgroundTasks, verbo: str) -> None:
+    """Notifica o vendedor no painel e por e-mail (em background) que o cliente aceitou."""
+    rotulo, link = descrever_documento(doc)
+    titulo = f"{rotulo} {verbo} por {doc.cliente.razao_social}"
+    await notificar(
+        db, empresa_id=doc.empresa_id, usuario_id=doc.usuario_id, tipo="aceita",
+        titulo=titulo, mensagem=f"\"{doc.titulo}\" — {format_brl(doc.valor_total)}",
+        link=link, referencia_id=doc.id,
+    )
+    if doc.usuario and doc.usuario.email:
+        html = email_service.render_system_email(
+            titulo,
+            [
+                f"Olá, {doc.usuario.nome}!",
+                f"{doc.cliente.razao_social} acaba de dar o aceite em \"{doc.titulo}\", "
+                f"no valor de {format_brl(doc.valor_total)}.",
+                "O registro (data e IP) ficou salvo no documento.",
+            ],
+            "Abrir no painel",
+            f"{settings.FRONTEND_URL.rstrip('/')}{link}",
+            cor=doc.empresa.cor_marca or "#16a34a",
+        )
+        background.add_task(email_service.send_notification_email, doc.empresa, doc.usuario.email, titulo, html)
+
+
+@router.get("/{token}")
+async def get_public_proposta(token: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Busca uma proposta pelo token público para visualização do cliente."""
+    proposta = await _load(db, Proposta, token, "Proposta não encontrada ou link inválido.")
+    data = _serialize(proposta)
+    await _registrar_visualizacao(db, Proposta, proposta)
+    return data
+
 
 @router.post("/{token}/aceitar")
 async def aceitar_proposta(
     token: uuid.UUID,
     request: Request,
-    body: AceitarPropostaRequest,
-    db: AsyncSession = Depends(get_db)
+    body: AceiteRequest,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Registra o aceite (assinatura digital) do cliente na proposta."""
+    """Registra o aceite (assinatura eletrônica simples) do cliente na proposta."""
     if not body.aceite:
         raise HTTPException(status_code=400, detail="É necessário confirmar o aceite.")
 
-    result = await db.execute(
-        select(Proposta).where(Proposta.token_publico == token)
-    )
-    proposta = result.scalar_one_or_none()
-
-    if not proposta:
-        raise HTTPException(status_code=404, detail="Proposta não encontrada.")
-
+    proposta = await _load(db, Proposta, token, "Proposta não encontrada.")
     if proposta.status == StatusProposta.ACEITA:
         raise HTTPException(status_code=400, detail="Esta proposta já foi aceita anteriormente.")
-
-    if proposta.status == StatusProposta.RECUSADA:
-        raise HTTPException(status_code=400, detail="Esta proposta foi recusada e não pode ser aceita.")
-
-    val = proposta.data_validade
-    if val:
-        if val.tzinfo is None:
-            val = val.replace(tzinfo=timezone.utc)
-        if val < datetime.now(timezone.utc):
-            raise HTTPException(status_code=400, detail="Esta proposta expirou e não pode mais ser aceita.")
-
-    if not proposta.empresa.ativo:
-        raise HTTPException(status_code=400, detail="Esta proposta não está mais disponível.")
-
-    # Coleta de dados para a assinatura simples
-    client_host = request.client.host if request.client else "unknown"
-    # Se estiver atrás de proxy (Nginx), pega o IP real
-    real_ip = request.headers.get("X-Forwarded-For", client_host).split(",")[0].strip()
+    if proposta.status in (StatusProposta.RECUSADA, StatusProposta.EXPIRADA):
+        raise HTTPException(status_code=400, detail="Esta proposta não está mais disponível para aceite.")
+    if _expirado(proposta):
+        raise HTTPException(status_code=400, detail="Esta proposta expirou e não pode mais ser aceita.")
 
     proposta.status = StatusProposta.ACEITA
-    proposta.assinatura_ip = real_ip
+    proposta.assinatura_ip = _client_ip(request)
     proposta.assinatura_data = datetime.now(timezone.utc)
-
+    await _registrar_aceite(db, proposta, background, "aceita")
     await db.commit()
 
     return {"message": "Proposta aceita com sucesso!", "assinatura_data": proposta.assinatura_data}
 
-# --- Rotas Públicas para Orçamentos ---
-
-from app.models.orcamento import Orcamento, StatusOrcamento
-
-orcamento_router = APIRouter(prefix="/api/public/orcamentos", tags=["Public"])
 
 @orcamento_router.get("/{token}")
 async def get_public_orcamento(token: uuid.UUID, db: AsyncSession = Depends(get_db)):
     """Busca um orçamento pelo token público para visualização do cliente."""
-    result = await db.execute(
-        select(Orcamento)
-        .options(selectinload(Orcamento.items), selectinload(Orcamento.empresa), selectinload(Orcamento.cliente))
-        .where(Orcamento.token_publico == token)
-    )
-    orcamento = result.scalar_one_or_none()
+    orcamento = await _load(db, Orcamento, token, "Orçamento não encontrado ou link inválido.")
+    data = _serialize(orcamento)
+    await _registrar_visualizacao(db, Orcamento, orcamento)
+    return data
 
-    if not orcamento:
-        raise HTTPException(status_code=404, detail="Orçamento não encontrado ou link inválido.")
-
-    if not orcamento.empresa.ativo:
-        raise HTTPException(status_code=404, detail="Orçamento não encontrado ou link inválido.")
-
-    # Increment view count atomically
-    orcamento.visualizacoes = (orcamento.visualizacoes or 0) + 1
-    await db.commit()
-    await db.refresh(orcamento)
-
-    return {
-        "titulo": orcamento.titulo,
-        "numero": orcamento.numero,
-        "status": orcamento.status,
-        "data_emissao": orcamento.data_emissao,
-        "data_validade": orcamento.data_validade,
-        "validade_dias": orcamento.validade_dias,
-        "valor_total": orcamento.valor_total,
-        "observacoes": orcamento.observacoes,
-        "condicoes_pagamento": orcamento.condicoes_pagamento,
-        "assinatura_data": orcamento.assinatura_data,
-        "empresa": {
-            "razao_social": orcamento.empresa.razao_social,
-            "nome_fantasia": orcamento.empresa.nome_fantasia,
-            "cnpj": orcamento.empresa.cnpj,
-            "logo_url": orcamento.empresa.logo_url,
-            "email": orcamento.empresa.email,
-            "telefone": orcamento.empresa.telefone
-        },
-        "cliente": {
-            "razao_social": orcamento.cliente.razao_social,
-            "cnpj_cpf": orcamento.cliente.cnpj or orcamento.cliente.cpf
-        },
-        "items": [
-            {
-                "descricao": item.descricao,
-                "quantidade": item.quantidade,
-                "preco_unitario": item.preco_unitario,
-                "subtotal": item.subtotal
-            } for item in orcamento.items
-        ]
-    }
-
-class AprovarOrcamentoRequest(BaseModel):
-    aceite: bool
 
 @orcamento_router.post("/{token}/aprovar")
+@orcamento_router.post("/{token}/aceitar")
 async def aprovar_orcamento(
     token: uuid.UUID,
     request: Request,
-    body: AprovarOrcamentoRequest,
-    db: AsyncSession = Depends(get_db)
+    body: AceiteRequest,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
 ):
     """Registra a aprovação do cliente no orçamento."""
     if not body.aceite:
         raise HTTPException(status_code=400, detail="É necessário confirmar a aprovação.")
 
-    result = await db.execute(
-        select(Orcamento).where(Orcamento.token_publico == token)
-    )
-    orcamento = result.scalar_one_or_none()
-
-    if not orcamento:
-        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
-
+    orcamento = await _load(db, Orcamento, token, "Orçamento não encontrado.")
     if orcamento.status == StatusOrcamento.APROVADO:
         raise HTTPException(status_code=400, detail="Este orçamento já foi aprovado anteriormente.")
-
-    if orcamento.status == StatusOrcamento.RECUSADO:
-        raise HTTPException(status_code=400, detail="Este orçamento foi recusado e não pode ser aprovado.")
-
-    val = orcamento.data_validade
-    if val:
-        if val.tzinfo is None:
-            val = val.replace(tzinfo=timezone.utc)
-        if val < datetime.now(timezone.utc):
-            raise HTTPException(status_code=400, detail="Este orçamento expirou e não pode mais ser aprovado.")
-
-    if not orcamento.empresa.ativo:
-        raise HTTPException(status_code=400, detail="Este orçamento não está mais disponível.")
-
-    client_host = request.client.host if request.client else "unknown"
-    real_ip = request.headers.get("X-Forwarded-For", client_host).split(",")[0].strip()
+    if orcamento.status in (StatusOrcamento.REJEITADO, StatusOrcamento.VENCIDO):
+        raise HTTPException(status_code=400, detail="Este orçamento não está mais disponível para aprovação.")
+    if _expirado(orcamento):
+        raise HTTPException(status_code=400, detail="Este orçamento expirou e não pode mais ser aprovado.")
 
     orcamento.status = StatusOrcamento.APROVADO
-    orcamento.assinatura_ip = real_ip
+    orcamento.assinatura_ip = _client_ip(request)
     orcamento.assinatura_data = datetime.now(timezone.utc)
-
+    await _registrar_aceite(db, orcamento, background, "aprovado")
     await db.commit()
-    
+
     return {"message": "Orçamento aprovado com sucesso!", "assinatura_data": orcamento.assinatura_data}

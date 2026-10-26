@@ -21,12 +21,6 @@
       </div>
 
       <div class="filter-actions">
-        <select v-model="selectedCurrency" class="custom-select currency-select" @change="fetchDashboardData">
-          <option value="BRL">R$ BRL</option>
-          <option value="USD">$ USD</option>
-          <option value="EUR">€ EUR</option>
-        </select>
-
         <select v-model="selectedPeriod" class="custom-select period-select" @change="fetchDashboardData">
           <option value="tudo">Todo o período</option>
           <option value="hoje">Hoje</option>
@@ -36,6 +30,12 @@
           <option value="ano_atual">Este ano</option>
         </select>
       </div>
+    </div>
+
+    <div v-if="metricsError" class="dashboard-error" role="alert">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>Não foi possível carregar os indicadores. Verifique sua conexão.</span>
+      <button class="text-btn" @click="fetchMetrics">Tentar novamente</button>
     </div>
 
     <!-- Stats Grid -->
@@ -200,7 +200,7 @@ const gamificationRef = ref(null);
 const showPlanosModal = ref(false);
 
 const selectedPeriod = ref('tudo');
-const selectedCurrency = ref('BRL');
+const metricsError = ref(false);
 const onlyMeFilter = ref(false);
 const showActivities = ref(true);
 const loadingActivities = ref(false);
@@ -221,8 +221,7 @@ const metrics = ref({
 
 const formatCurrency = (val) => {
   const num = Number(val) || 0;
-  const curr = selectedCurrency.value || 'BRL';
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: curr }).format(num);
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
 };
 
 const formatStatus = (st) => {
@@ -255,13 +254,14 @@ const formatRelativeTime = (dateStr) => {
 };
 
 const fetchMetrics = async () => {
+  metricsError.value = false;
   try {
-    const res = await api.get(`/api/dashboard/metrics?periodo=${selectedPeriod.value}`);
+    const res = await api.get('/api/dashboard/metrics', { params: { periodo: selectedPeriod.value } });
     if (res.data) {
       metrics.value = res.data;
     }
   } catch (error) {
-    console.error('Erro ao carregar métricas do dashboard:', error);
+    metricsError.value = true;
   }
 };
 
@@ -769,6 +769,23 @@ onMounted(() => {
     width: 100%;
     justify-content: space-between;
   }
+}
+
+.dashboard-error {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: var(--border-radius-sm);
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  color: var(--danger-400, #e11d48);
+  font-size: 0.9rem;
+}
+
+.dashboard-error .text-btn {
+  margin-left: auto;
 }
 </style>
 

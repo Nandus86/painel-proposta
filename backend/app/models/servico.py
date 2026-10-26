@@ -2,7 +2,7 @@ import uuid
 import enum
 from typing import Optional
 from datetime import datetime
-from sqlalchemy import String, Text, DateTime, ForeignKey, func, Boolean, Numeric, Enum
+from sqlalchemy import String, Text, DateTime, ForeignKey, func, Boolean, Numeric, Enum, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
@@ -16,6 +16,9 @@ class TipoServico(str, enum.Enum):
 
 class Servico(Base):
     __tablename__ = "servicos"
+    __table_args__ = (
+        Index("ix_servicos_empresa", "empresa_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4

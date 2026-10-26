@@ -232,6 +232,8 @@
 </template>
 
 <script setup>
+import { errorMessage } from '@/utils/errors'
+import { htmlToMarkdown, isVariableTag, markdownToHtml } from '@/utils/varEditor'
 import { ref, onMounted, nextTick } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from 'primevue/usetoast'
@@ -251,7 +253,6 @@ import Column from 'primevue/column'
 import VariablePalette from '../components/VariablePalette.vue'
 import api from '../services/api'
 
-const TAG_RE = /\{\{[a-z][a-z0-9_]*\}\}/g
 
 const authStore = useAuthStore()
 const toast = useToast()
@@ -317,7 +318,7 @@ async function saveVar() {
     varDialogVisible.value = false
     await fetchCustomVars()
   } catch (e) {
-    const msg = e.response?.data?.detail || 'Erro ao salvar variável'
+    const msg = errorMessage(e, 'Erro ao salvar variável')
     toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 5000 })
   } finally {
     savingVar.value = false
@@ -345,26 +346,7 @@ async function deleteVar(item) {
 
 const editorRef = ref(null)
 
-function markdownToHtml(text) {
-  if (!text) return ''
-  return text.replace(TAG_RE, (match) => {
-    const inner = match.slice(2, -2)
-    return `<span class="var-badge" contenteditable="false" data-tag="${match}" data-inner="${inner}" style="background:rgba(59,130,246,0.12);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);font-weight:600;border-radius:4px;padding:0 6px;margin:0 1px;font-family:monospace;font-size:0.85em;cursor:default;display:inline-block;white-space:nowrap;">${match}</span>`
-  })
-}
 
-function htmlToMarkdown() {
-  if (!editorRef.value) return ''
-  let html = editorRef.value.innerHTML
-
-  html = html.replace(/<span[^>]*data-tag="([^"]*)"[^>]*>.*?<\/span>/g, (_, tag) => tag)
-  html = html.replace(/<br\s*\/?>/gi, '\n')
-  html = html.replace(/<div>/gi, '').replace(/<\/div>/gi, '\n')
-  html = html.replace(/<\/p>/gi, '\n')
-  html = html.replace(/<[^>]*>/g, '')
-
-  return html.replace(/\n{3,}/g, '\n\n').trim()
-}
 
 function setEditorContent(markdown) {
   if (!editorRef.value) return
@@ -453,7 +435,7 @@ function insertVariable(tag) {
 function onDropEmail(event) {
   event.preventDefault()
   const tag = event.dataTransfer.getData('text/plain')
-  if (tag && TAG_RE.test(tag)) {
+  if (tag && isVariableTag(tag)) {
     editorRef.value.focus()
 
     const x = event.clientX
@@ -473,7 +455,7 @@ function onDropEmail(event) {
 
 function onEditorInput() {
   if (config.value) {
-    config.value.email_corpo_padrao = htmlToMarkdown()
+    config.value.email_corpo_padrao = htmlToMarkdown(editorRef.value)
   }
 }
 

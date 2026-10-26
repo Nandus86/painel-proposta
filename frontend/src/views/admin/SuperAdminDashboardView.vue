@@ -105,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -210,6 +210,14 @@ onMounted(async () => {
   } catch (e) {
     console.error('Erro ao carregar dashboard superadmin:', e)
   }
+})
+
+onBeforeUnmount(() => {
+  // Libera os canvas do Chart.js ao sair da página
+  if (planoChart) planoChart.destroy()
+  if (pagamentoChart) pagamentoChart.destroy()
+  planoChart = null
+  pagamentoChart = null
 })
 </script>
 

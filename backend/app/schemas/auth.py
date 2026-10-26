@@ -1,10 +1,11 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class RegisterRequest(BaseModel):
-    nome: str
+    nome: str = Field(..., max_length=255)
     email: EmailStr
-    senha: str
+    senha: str = Field(..., max_length=128)
+    empresa: str | None = Field(None, max_length=255)
 
 
 class LoginRequest(BaseModel):
@@ -36,3 +37,17 @@ class UserInfo(BaseModel):
     is_superuser: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class EsqueciSenhaRequest(BaseModel):
+    email: EmailStr
+
+
+class RedefinirSenhaRequest(BaseModel):
+    token: str = Field(..., max_length=2048)
+    senha: str = Field(..., max_length=128)
+
+
+class AlterarSenhaRequest(BaseModel):
+    senha_atual: str = Field(..., max_length=128)
+    nova_senha: str = Field(..., max_length=128)

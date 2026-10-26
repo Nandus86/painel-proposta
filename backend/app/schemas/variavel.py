@@ -53,6 +53,8 @@ VARIABLE_CATALOG: list[VariavelCatalogo] = [
     VariavelCatalogo(tag="{{proposta_numero}}", nome="Número da Proposta", descricao="Número sequencial da proposta", categoria="proposta", cor="#16a34a"),
     VariavelCatalogo(tag="{{valor_total}}", nome="Valor Total", descricao="Valor total da proposta (R$)", categoria="proposta", cor="#16a34a"),
     VariavelCatalogo(tag="{{valor_total_extenso}}", nome="Valor por Extenso", descricao="Valor total por extenso", categoria="proposta", cor="#16a34a"),
+    VariavelCatalogo(tag="{{link_proposta}}", nome="Link do Documento", descricao="Link público para o cliente ver e aceitar (e-mail e WhatsApp)", categoria="proposta", cor="#16a34a"),
+    VariavelCatalogo(tag="{{botao_link}}", nome="Botão de Acesso", descricao="Botão 'Visualizar' no corpo do e-mail", categoria="proposta", cor="#16a34a"),
     VariavelCatalogo(tag="{{condicoes_pagamento}}", nome="Condições de Pagamento", descricao="Condições de pagamento definidas", categoria="proposta", cor="#16a34a"),
     VariavelCatalogo(tag="{{itens}}", nome="Lista de Itens", descricao="Listagem descritiva dos itens/serviços", categoria="itens", cor="#8b5cf6"),
     VariavelCatalogo(tag="{{itens_tabela}}", nome="Tabela de Itens", descricao="Tabela formatada com itens, qtd e valores", categoria="itens", cor="#8b5cf6"),
