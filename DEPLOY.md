@@ -6,7 +6,8 @@ Guia para colocar o painel no ar numa VPS Linux com Docker. Tempo estimado: 20�
 
 ```
 Internet ──► Caddy (HTTPS, opcional) ──► frontend (nginx: SPA + proxy /api) ──► backend (FastAPI) ──► Postgres
-                                                                                   └─ volume "uploads" (logos)
+                                                                                   ├─► WhatsMeow Basileia (:8080)
+                                                                                   └─► volume "uploads" (logos)
 ```
 
 - Só o nginx (ou o Caddy) fica exposto. API e banco ficam na rede interna do Docker.
@@ -15,7 +16,7 @@ Internet ──► Caddy (HTTPS, opcional) ──► frontend (nginx: SPA + prox
 
 ## 1. Requisitos
 
-- VPS com Ubuntu 22.04/24.04 (ou Debian 12), **mínimo 2 GB de RAM** e 20 GB de disco.
+- VPS com Ubuntu 22.04/24.04 (ou Debian 12), **mínimo 2 GB de RAM** e 20 GB de disco (4 GB de RAM se rodar o `whatsmeow-basileia` na mesma VPS).
 - Um domínio, com um registro **A** apontando para o IP da VPS (ex.: `app.seudominio.com.br`).
 
 ## 2. Preparar o servidor
@@ -51,6 +52,8 @@ Campos obrigatórios:
 | `APP_DOMAIN` | `app.seudominio.com.br` | Domínio do certificado HTTPS. |
 | `FRONTEND_URL` | `https://app.seudominio.com.br` | Base dos links enviados aos clientes. |
 | `CORS_ORIGINS` | `https://app.seudominio.com.br` | Igual à `FRONTEND_URL`. |
+| `WHATSAPP_API_URL` | `http://host.docker.internal:8080` | URL do `whatsmeow-basileia` (ou URL pública HTTPS se estiver em outra VPS). |
+| `WHATSAPP_ADMIN_TOKEN` | `wmb_...` | Chave admin do `whatsmeow-basileia` v0.0.8+ (`docker exec whatsmeow-app cat /app/data/.api-key`). |
 
 A API **não sobe** em produção se a `SECRET_KEY` estiver vazia, com menos de 32 caracteres ou com um valor de exemplo.
 
@@ -60,7 +63,7 @@ A API **não sobe** em produção se a `SECRET_KEY` estiver vazia, com menos de 
 
 ### Opção A — HTTPS automático com Caddy (recomendado para VPS dedicada)
 
-No `.env`, defina `FRONTEND_BIND=127.0.0.1:8080` e suba com o perfil `https`:
+No `.env`, defina `FRONTEND_BIND=127.0.0.1:8080` (ou outra porta livre caso o WhatsMeow já use a 8080 no host, ex.: `127.0.0.1:8088`) e suba com o perfil `https`:
 
 ```bash
 docker compose --profile https up -d --build
@@ -97,12 +100,12 @@ docker compose exec backend python -m scripts.create_superadmin --email voce@seu
 Entre no painel com esse usuário e, em **Super Admin → Configurações**:
 
 1. Cadastre a chave do **OpenRouter** e o modelo de IA (sem isso, a geração de texto por IA fica desativada com uma mensagem amigável).
-2. Revise os **planos** (preços e limites).
-3. Se for usar WhatsApp via Uazapi, cadastre a URL e o admin token.
+2. Configure (ou valide) a **URL da API do WhatsApp** e a **Admin API Key (`wmb_...`)** do `whatsmeow-basileia`.
+3. Revise os **planos** (preços e limites).
 
 Rotinas automáticas (ligadas por padrão, `JOBS_ENABLED`): a cada hora a API marca como vencidos os documentos **enviados** que passaram da validade e avisa o vendedor, no sino do painel, quando faltam `AVISO_VENCIMENTO_DIAS` dias para vencer. O vendedor também é avisado quando o cliente abre o link pela primeira vez e quando aceita.
 
-Cada empresa cliente se cadastra em `/register` e configura o próprio SMTP no assistente inicial ou em **Configurações** (porta 465 = SSL; 587 = STARTTLS).
+Cada empresa cliente se cadastra em `/register` e configura o próprio SMTP e WhatsApp no assistente inicial ou em **Configurações / Integrações** (porta 465 = SSL; 587 = STARTTLS).
 
 ## 6. Backups
 

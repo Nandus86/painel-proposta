@@ -25,7 +25,7 @@
       <p>Escaneie o QR code com o WhatsApp para conectar sua conta.</p>
 
       <div v-if="qr" class="wpp-qr-container">
-        <img :src="'data:image/png;base64,' + qr" alt="QR Code" class="wpp-qr" />
+        <img :src="qrSrc" alt="QR Code" class="wpp-qr" />
         <p class="wpp-qr-hint">Abra o WhatsApp no seu celular e escaneie o código</p>
       </div>
 
@@ -47,7 +47,7 @@
 
 <script setup>
 import { errorMessage } from '@/utils/errors'
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
 import api from '../services/api'
@@ -65,11 +65,19 @@ const disconnecting = ref(false)
 const error = ref('')
 let pollInterval = null
 
+const qrSrc = computed(() => {
+  if (!qr.value) return ''
+  return qr.value.startsWith('data:') ? qr.value : `data:image/png;base64,${qr.value}`
+})
+
 async function checkStatus() {
   try {
     const { data } = await api.get('/api/whatsapp/status')
     status.value = data.status || 'disconnected'
     numero.value = data.numero
+    if (data.qr && status.value !== 'connected') {
+      qr.value = data.qr
+    }
     if (status.value === 'connected') {
       clearPoll()
       qr.value = null
@@ -91,6 +99,9 @@ function startPoll() {
       const { data } = await api.get('/api/whatsapp/status')
       status.value = data.status || 'disconnected'
       numero.value = data.numero
+      if (data.qr && status.value !== 'connected') {
+        qr.value = data.qr
+      }
       if (status.value === 'connected') {
         clearPoll()
         qr.value = null

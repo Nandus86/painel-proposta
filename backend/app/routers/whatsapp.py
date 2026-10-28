@@ -14,7 +14,9 @@ router = APIRouter(prefix="/api/whatsapp", tags=["WhatsApp"])
 
 
 def _validate_uazapi_config(sistema_config: SistemaConfig):
-    if not sistema_config.uazapi_base_url or not sistema_config.uazapi_admin_token:
+    from app.config import settings
+    base_url = sistema_config.uazapi_base_url or getattr(settings, "WHATSAPP_API_URL", None)
+    if not base_url:
         raise HTTPException(status_code=400, detail="WhatsApp não configurado no sistema")
 
 

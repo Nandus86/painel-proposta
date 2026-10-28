@@ -2,7 +2,7 @@
   <div class="superadmin-config-view fade-in">
     <div class="page-header">
       <h2>Configurações do Sistema</h2>
-      <p class="page-desc">Visão de Superusuário: Gerencie a Inteligência Artificial global do SaaS.</p>
+      <p class="page-desc">Visão de Superusuário: Gerencie a Inteligência Artificial e a integração de WhatsApp global do SaaS.</p>
     </div>
 
     <div class="form-card glass">
@@ -66,6 +66,57 @@
           </div>
         </div>
 
+        <!-- WhatsApp Settings Section -->
+        <div class="form-section" v-if="!loadingConfig">
+          <h3 class="form-section-title">
+            <i class="pi pi-whatsapp"></i>
+            Gateway WhatsApp (WhatsMeow Basileia / Uazapi)
+          </h3>
+          <p class="section-desc">Configure a URL do gateway de WhatsApp e a chave administrativa (API Key) para permitir que as empresas conectem seus números.</p>
+
+          <div class="form-grid">
+            <div class="field span-2">
+              <label for="whatsapp-url">URL da API do WhatsApp</label>
+              <InputText
+                id="whatsapp-url"
+                v-model="config.uazapi_base_url"
+                placeholder="Ex.: http://localhost:8080 ou https://apiwp.seudominio.com.br"
+                class="w-full"
+              />
+            </div>
+
+            <div class="field span-2 mt-2">
+              <label for="whatsapp-token">Admin API Key (wmb_... ou admintoken)</label>
+              <div class="api-key-input-wrapper">
+                <div class="input-with-button">
+                  <InputText
+                    id="whatsapp-token"
+                    v-model="uazapiToken"
+                    :type="showWppKey ? 'text' : 'password'"
+                    :placeholder="config.has_uazapi_admin_token ? '•••••••••••••••••••••••••••••••• (Salva e encriptada)' : 'Chave Admin do WhatsMeow-Basileia (wmb_...)'"
+                    class="w-full key-input"
+                  />
+                  <Button
+                    type="button"
+                    :icon="showWppKey ? 'pi pi-eye-slash' : 'pi pi-eye'"
+                    severity="secondary"
+                    text
+                    class="toggle-key-btn"
+                    @click="showWppKey = !showWppKey"
+                    v-tooltip.bottom="showWppKey ? 'Ocultar chave' : 'Mostrar chave'"
+                  />
+                </div>
+                <div class="key-status mt-2">
+                  <span class="status-pill" :class="config.has_uazapi_admin_token ? 'aceita' : 'rascunho'">
+                    <i :class="config.has_uazapi_admin_token ? 'pi pi-lock-open mr-1' : 'pi pi-lock mr-1'"></i>
+                    {{ config.has_uazapi_admin_token ? 'Token configurado e protegido' : 'Nenhum token configurado' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Save Button -->
         <div class="form-actions" v-if="!loadingConfig">
           <Button type="submit" label="Salvar Configurações" icon="pi pi-check" :loading="saving" class="save-btn" />
@@ -85,9 +136,16 @@ import api from '../../services/api'
 
 const toast = useToast()
 
-const config = ref({ has_openrouter_key: false, openrouter_model: '' })
+const config = ref({
+  has_openrouter_key: false,
+  openrouter_model: '',
+  uazapi_base_url: '',
+  has_uazapi_admin_token: false,
+})
 const openrouterKey = ref('')
+const uazapiToken = ref('')
 const showKey = ref(false)
+const showWppKey = ref(false)
 const saving = ref(false)
 const models = ref([])
 const loadingModels = ref(false)
@@ -127,18 +185,24 @@ async function handleSave() {
   saving.value = true
   try {
     const payload = {
-      openrouter_model: config.value.openrouter_model
+      openrouter_model: config.value.openrouter_model,
+      uazapi_base_url: config.value.uazapi_base_url || '',
     }
-    
-    // Send key only if user typed a new one
+
+    // Send keys only if user typed a new one
     if (openrouterKey.value.trim()) {
       payload.openrouter_key = openrouterKey.value.trim()
+    }
+    if (uazapiToken.value.trim()) {
+      payload.uazapi_admin_token = uazapiToken.value.trim()
     }
 
     const { data } = await api.put('/api/admin/config', payload)
     config.value = data
-    openrouterKey.value = '' // Clear input after saving
+    openrouterKey.value = ''
+    uazapiToken.value = ''
     showKey.value = false
+    showWppKey.value = false
     toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Configurações globais atualizadas', life: 3000 })
   } catch (e) {
     console.error(e)
@@ -182,6 +246,12 @@ async function handleSave() {
 .form-section {
   margin-bottom: 2.25rem;
   padding-bottom: 1.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.form-section:last-of-type {
+  border-bottom: none;
+  margin-bottom: 1rem;
 }
 
 .form-section-title {

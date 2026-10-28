@@ -18,19 +18,25 @@ docker compose exec backend python -m scripts.create_superadmin --email voce@dom
 
 ## Desenvolvimento local
 
-```bash
-# Banco
+# Iniciar tudo automaticamente (WhatsApp + Backend + Frontend):
+iniciar-servicos.bat
+
+# Ou individualmente:
+# 1. WhatsApp Service (whatsmeow-basileia)
+docker compose -f D:\projetos\whatsmeow-basileia\docker-compose.yml up -d
+
+# 2. Banco
 docker compose -f docker-compose.dev.yml up -d
 
-# API (Python 3.12)
+# 3. API (Python 3.12)
 cd backend
 python -m venv .venv && .venv/Scripts/activate   # Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 alembic upgrade head
-uvicorn app.main:app --reload                    # http://localhost:8000/api/docs
+uvicorn app.main:app --reload --port 8001        # http://localhost:8001/api/docs
 
-# Frontend (Node 22)
+# 4. Frontend (Node 22)
 cd frontend
 npm ci
 npm run dev                                      # http://localhost:5173

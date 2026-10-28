@@ -68,6 +68,10 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = False
     MINIO_PUBLIC_URL: Optional[str] = None
 
+    # WhatsApp (WhatsMeow Basileia / Uazapi)
+    WHATSAPP_API_URL: str = "http://localhost:8080"
+    WHATSAPP_ADMIN_TOKEN: Optional[str] = "whatsmeow-admin-key"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]

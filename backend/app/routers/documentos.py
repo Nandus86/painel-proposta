@@ -366,4 +366,53 @@ def build_router(kind: DocKind, prefix: str, tags: list[str]) -> APIRouter:
 
         return {"ok": True, "message": "E-mail enviado com sucesso"}
 
+    @router.post("/{id}/enviar-whatsapp")
+    async def enviar_whatsapp(
+        id: UUID,
+        db: AsyncSession = Depends(get_db),
+        current_user: Usuario = Depends(get_current_active_user),
+    ):
+        from app.models.sistema_config import SistemaConfig
+        from app.services.whatsapp import send_text
+        from app.services.email import build_email_variables, replace_variables
+
+        doc = await _get_doc(db, id, current_user.empresa_id, "cliente", "empresa", "usuario")
+        if not doc.cliente or not doc.cliente.telefone:
+            raise HTTPException(status_code=400, detail="O cliente não possui telefone/WhatsApp cadastrado.")
+        if not doc.empresa.whatsapp_conectado:
+            raise HTTPException(
+                status_code=400,
+                detail="WhatsApp não está conectado. Conecte seu WhatsApp em Integrações antes de enviar.",
+            )
+
+        link = build_public_url(doc.empresa, doc.token_publico, kind.is_orcamento)
+        variables = build_email_variables(doc.empresa, doc, is_orcamento=kind.is_orcamento)
+        variables["link_proposta" if not kind.is_orcamento else "link_orcamento"] = link
+
+        tipo_doc = "orçamento" if kind.is_orcamento else "proposta"
+        artigo = "o" if kind.is_orcamento else "a"
+        numero_str = f" #{doc.numero}" if getattr(doc, "numero", None) else ""
+        msg_padrao = doc.empresa.whatsapp_mensagem_padrao or (
+            f"Olá {{{{cliente_contato_nome}}}}! Segue {artigo} {tipo_doc}{numero_str} - *{{{{proposta_titulo}}}}* no valor de {{{{proposta_valor_total}}}}.\n\nAcesse pelo link: {link}"
+        )
+        msg_texto = replace_variables(msg_padrao, variables)
+
+        sc = await db.get(SistemaConfig, 1)
+        if not sc:
+            sc = SistemaConfig(id=1)
+            db.add(sc)
+
+        try:
+            await send_text(doc.empresa, sc, doc.cliente.telefone, msg_texto)
+        except Exception as e:
+            logger.error(f"Erro ao enviar WhatsApp: {e}")
+            raise HTTPException(status_code=400, detail=str(e))
+
+        if doc.status == kind.status_enum.RASCUNHO:
+            doc.status = kind.status_enviado
+            await db.commit()
+
+        return {"ok": True, "message": "Mensagem enviada com sucesso via WhatsApp"}
+
     return router
+
