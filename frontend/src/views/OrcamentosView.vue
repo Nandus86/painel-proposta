@@ -80,7 +80,16 @@
               <Button icon="pi pi-file-pdf" severity="help" text rounded @click="downloadPdf(data)" v-tooltip="'Baixar PDF'" />
               <Button icon="pi pi-link" severity="success" text rounded @click="copyMagicLink(data)" v-tooltip="'Copiar Link Mágico'" />
               <Button icon="pi pi-envelope" severity="secondary" text rounded @click="sendEmail(data)" v-tooltip="'Enviar via E-mail'" />
-              <Button icon="pi pi-whatsapp" severity="success" text rounded @click="sendWhatsapp(data)" v-tooltip="'Enviar via WhatsApp'" />
+              <Button 
+                icon="pi pi-whatsapp" 
+                :severity="whatsappConectado ? 'success' : 'secondary'" 
+                text 
+                rounded 
+                :disabled="!whatsappConectado || sendingWhatsappId === data.id"
+                :loading="sendingWhatsappId === data.id"
+                @click="sendWhatsapp(data)" 
+                v-tooltip="whatsappConectado ? 'Enviar via WhatsApp' : 'WhatsApp não conectado (conecte em Integrações)'" 
+              />
               <Button icon="pi pi-trash" severity="danger" text rounded @click="confirmDelete(data)" v-tooltip="'Excluir'" />
             </div>
           </template>
@@ -133,6 +142,17 @@ const checks = ref({
   categorias: false,
   servicos: false
 });
+const whatsappConectado = ref(false);
+const sendingWhatsappId = ref(null);
+
+async function checkWhatsappStatus() {
+  try {
+    const { data } = await api.get('/api/empresas/me');
+    whatsappConectado.value = Boolean(data.whatsapp_conectado || data.whatsapp_status === 'connected');
+  } catch (e) {
+    whatsappConectado.value = false;
+  }
+}
 const checkLoading = ref(false);
 const reqPopover = ref(null);
 
@@ -247,9 +267,32 @@ const sendEmail = async (orcamento) => {
   }
 };
 
-const sendWhatsapp = (orcamento) => {
-  const msg = encodeURIComponent(`Olá! Segue o link para o orçamento #${orcamento.numero} - ${orcamento.titulo}: ${window.location.origin}/o/${orcamento.token_publico}`);
-  window.open(`https://api.whatsapp.com/send?text=${msg}`, '_blank');
+const sendWhatsapp = async (orcamento) => {
+  if (!whatsappConectado.value) {
+    toast.add({
+      severity: 'warn',
+      summary: 'WhatsApp Desconectado',
+      detail: 'Conecte seu WhatsApp no menu Integrações antes de enviar.',
+      life: 4000
+    });
+    return;
+  }
+
+  sendingWhatsappId.value = orcamento.id;
+  try {
+    toast.add({ severity: 'info', summary: 'Enviando...', detail: 'Disparando orçamento via WhatsApp...', life: 2500 });
+    await api.post(`/api/orcamentos/${orcamento.id}/enviar-whatsapp`);
+    toast.add({ severity: 'success', summary: 'WhatsApp Enviado', detail: 'Orçamento enviado com sucesso para o cliente!', life: 3500 });
+    if (orcamento.status === 'rascunho') {
+      orcamento.status = 'enviado';
+    }
+  } catch (error) {
+    console.error('Erro ao enviar WhatsApp:', error);
+    const msg = errorMessage(error, 'Falha ao enviar via WhatsApp.');
+    toast.add({ severity: 'error', summary: 'Erro no WhatsApp', detail: msg, life: 5000 });
+  } finally {
+    sendingWhatsappId.value = null;
+  }
 };
 
 
@@ -266,6 +309,7 @@ const formatDate = (dateString) => {
 onMounted(() => {
   fetchOrcamentos();
   checkRequirements();
+  checkWhatsappStatus();
 });
 </script>
 

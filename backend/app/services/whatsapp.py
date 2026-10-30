@@ -296,7 +296,7 @@ async def get_status(empresa: Empresa, sistema_config: SistemaConfig) -> dict:
     headers = _build_headers(admin_token=admin_token, instance_token=token)
     admin_headers = _build_headers(admin_token=admin_token)
 
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(timeout=4) as client:
         # 1. Tentar WhatsMeow-Basileia v0.0.8+ GET /api/instance/status (retorna estado + QR ativo)
         if token:
             try:
@@ -448,12 +448,22 @@ async def send_text(empresa: Empresa, sistema_config: SistemaConfig, numero: str
     base_url, admin_token = _get_uazapi_config(sistema_config)
     token = _get_instance_token(empresa)
     if not base_url or not token:
-        raise ValueError("WhatsApp não configurado")
+        raise ValueError("WhatsApp não configurado no sistema")
 
-    if not empresa.whatsapp_conectado:
-        raise ValueError("WhatsApp não está conectado")
+    if not (empresa.whatsapp_conectado or empresa.whatsapp_status == "connected"):
+        raise ValueError("WhatsApp não está conectado. Conecte seu WhatsApp em Integrações antes de enviar.")
 
-    numero = numero.strip().replace("+", "").replace("-", "").replace(" ", "")
+    import re
+    # Remove qualquer caractere não numérico (+, -, (, ), espaços, etc.)
+    numero_limpo = re.sub(r"\D", "", str(numero or ""))
+    if not numero_limpo:
+        raise ValueError("Número de telefone/WhatsApp inválido ou vazio.")
+
+    # Se for número brasileiro com 10 ou 11 dígitos sem DDI, adiciona 55
+    if len(numero_limpo) in (10, 11) and not numero_limpo.startswith("55"):
+        numero_limpo = f"55{numero_limpo}"
+
+    numero = numero_limpo
     headers = _build_headers(admin_token=admin_token, instance_token=token)
     if empresa.uazapi_instance_id:
         headers["X-Instance-Id"] = empresa.uazapi_instance_id
@@ -479,7 +489,15 @@ async def send_text(empresa: Empresa, sistema_config: SistemaConfig, numero: str
         )
         if resp.status_code not in (200, 201):
             logger.error(f"WhatsApp send failed: {resp.status_code} {resp.text}")
-            raise ValueError("Falha ao enviar mensagem")
+            msg = "Falha ao enviar mensagem via WhatsApp"
+            try:
+                err_data = resp.json()
+                if isinstance(err_data, dict) and (err_data.get("message") or err_data.get("error")):
+                    msg = f"Falha ao enviar via WhatsApp: {err_data.get('message') or err_data.get('error')}"
+            except Exception:
+                if resp.text:
+                    msg = f"Falha ao enviar via WhatsApp ({resp.status_code}): {resp.text[:120]}"
+            raise ValueError(msg)
 
         return resp.json() if resp.text else {}
 

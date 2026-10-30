@@ -379,7 +379,7 @@ def build_router(kind: DocKind, prefix: str, tags: list[str]) -> APIRouter:
         doc = await _get_doc(db, id, current_user.empresa_id, "cliente", "empresa", "usuario")
         if not doc.cliente or not doc.cliente.telefone:
             raise HTTPException(status_code=400, detail="O cliente não possui telefone/WhatsApp cadastrado.")
-        if not doc.empresa.whatsapp_conectado:
+        if not (doc.empresa.whatsapp_conectado or doc.empresa.whatsapp_status == 'connected'):
             raise HTTPException(
                 status_code=400,
                 detail="WhatsApp não está conectado. Conecte seu WhatsApp em Integrações antes de enviar.",
