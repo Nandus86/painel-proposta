@@ -18,6 +18,7 @@ from app.core.security import get_password_hash
 from app.database import AsyncSessionLocal
 from app.models.empresa import Empresa
 from app.models.usuario import Usuario, UserRole
+from app.services.modelos_padrao import seed_modelos_padrao
 
 
 def _read_password() -> str:
@@ -61,6 +62,7 @@ async def main(email: str, nome: str) -> None:
                 cargo="Super Administrador",
                 is_superuser=True,
             ))
+            await seed_modelos_padrao(session, empresa.id, commit=False)
             print(f"Superadmin {email} criado.")
 
         await session.commit()

@@ -33,6 +33,7 @@ from app.schemas.auth import (
     UserInfo,
 )
 from app.services import email as email_service
+from app.services.modelos_padrao import seed_modelos_padrao
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,7 @@ async def register(data: RegisterRequest, background: BackgroundTasks, db: Async
         token_version=0,
     )
     db.add(novo_usuario)
+    await seed_modelos_padrao(db, nova_empresa.id, commit=False)
     await db.commit()
 
     if email_service.system_smtp_configurado():

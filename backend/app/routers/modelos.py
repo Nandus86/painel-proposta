@@ -14,6 +14,7 @@ from app.schemas.variavel import (
     VariavelCatalogo, VariavelCustomizadaCreate, VariavelCustomizadaUpdate,
     VariavelCustomizadaResponse, VARIABLE_CATALOG
 )
+from app.services.modelos_padrao import seed_modelos_padrao
 from app.core.dependencies import get_current_active_user, require_admin
 
 router = APIRouter(prefix="/api/modelos", tags=["Modelos de Proposta"])
@@ -155,7 +156,10 @@ async def list_modelos(
         .where(ModeloProposta.empresa_id == current_user.empresa_id)
         .order_by(ModeloProposta.titulo)
     )
-    return result.scalars().all()
+    modelos = list(result.scalars().all())
+    if not modelos:
+        modelos = await seed_modelos_padrao(db, current_user.empresa_id)
+    return modelos
 
 
 @router.get("/{modelo_id}", response_model=ModeloPropostaResponse)
