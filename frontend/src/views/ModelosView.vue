@@ -46,8 +46,87 @@
       </DataTable>
     </div>
 
-    <Dialog v-model:visible="dialogVisible" :header="editingModelo ? 'Editar Modelo' : 'Novo Modelo'" modal :style="{ width: '960px' }">
+    <Dialog v-model:visible="dialogVisible" :header="editingModelo ? 'Editar Modelo' : 'Novo Modelo'" modal :style="{ width: '1000px', maxWidth: '95vw' }">
       <form @submit.prevent="handleSave" class="dialog-form">
+        <!-- Card do Assistente de IA -->
+        <div class="ai-assistant-card">
+          <div class="ai-assistant-header" @click="aiPanelOpen = !aiPanelOpen">
+            <div class="ai-title">
+              <i class="pi pi-sparkles ai-sparkle-icon"></i>
+              <div>
+                <span class="ai-heading">Criar Modelo com Inteligência Artificial</span>
+                <span class="ai-subheading">A IA redige o escopo e posiciona as variáveis dinâmicas automaticamente</span>
+              </div>
+            </div>
+            <div class="ai-header-right">
+              <span class="ai-credits-pill" v-if="aiCredits && aiCredits.limit > 0">
+                <i class="pi pi-bolt"></i> {{ aiCredits.remaining }} / {{ aiCredits.limit }} créditos hoje
+              </span>
+              <Button 
+                :icon="aiPanelOpen ? 'pi pi-chevron-up' : 'pi pi-sparkles'" 
+                :label="aiPanelOpen ? 'Ocultar' : 'Usar IA'"
+                size="small"
+                severity="help"
+                :outlined="!aiPanelOpen"
+                @click.stop="aiPanelOpen = !aiPanelOpen"
+              />
+            </div>
+          </div>
+
+          <div v-if="aiPanelOpen" class="ai-assistant-body">
+            <div class="field">
+              <label class="ai-field-label">O que este modelo de proposta deve conter?</label>
+              <Textarea
+                v-model="aiBriefing"
+                rows="3"
+                placeholder="Ex: Crie um modelo para manutenção preventiva de ar-condicionado corporativo com visitas mensais, SLA de 4 horas em chamados urgentes, garantia de peças e faturamento a cada 30 dias..."
+                class="w-full ai-textarea"
+                :disabled="generatingAI"
+              />
+            </div>
+
+            <div class="ai-options-row">
+              <div class="ai-option-item">
+                <label>Segmento / Tipo:</label>
+                <Select
+                  v-model="aiTipo"
+                  :options="tipoOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  size="small"
+                  class="ai-select"
+                  :disabled="generatingAI"
+                />
+              </div>
+
+              <div class="ai-option-item">
+                <label>Tom de Voz:</label>
+                <Select
+                  v-model="aiTom"
+                  :options="tomOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  size="small"
+                  class="ai-select"
+                  :disabled="generatingAI"
+                />
+              </div>
+
+              <div class="ai-generate-action">
+                <Button
+                  label="Gerar Modelo com IA"
+                  icon="pi pi-sparkles"
+                  severity="help"
+                  :loading="generatingAI"
+                  :disabled="!aiBriefing.trim() || (aiCredits && aiCredits.remaining <= 0)"
+                  @click="gerarModeloComIA"
+                  class="btn-gerar-ia"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="field">
           <label for="titulo">Título do Modelo *</label>
           <InputText id="titulo" v-model="form.titulo" required placeholder="Ex: Modelo de Serviços de TI" autofocus />
@@ -94,6 +173,8 @@ import InputText from 'primevue/inputtext'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Dialog from 'primevue/dialog'
+import Textarea from 'primevue/textarea'
+import Select from 'primevue/select'
 import VariablePalette from '../components/VariablePalette.vue'
 import api from '../services/api'
 
@@ -120,6 +201,80 @@ const editorRef = ref(null)
 
 const defaultForm = { titulo: '', conteudo: '' }
 const form = reactive({ ...defaultForm })
+
+// Assistente IA
+const aiPanelOpen = ref(false)
+const aiBriefing = ref('')
+const aiTom = ref('Profissional e Persuasivo')
+const aiTipo = ref('Livre')
+const generatingAI = ref(false)
+const aiCredits = ref({ used: 0, limit: 0, remaining: 0 })
+
+const tomOptions = [
+  { label: 'Profissional e Persuasivo', value: 'Profissional e Persuasivo' },
+  { label: 'Formal e Técnico', value: 'Formal e Técnico' },
+  { label: 'Consultivo e Estratégico', value: 'Consultivo e Estratégico' },
+  { label: 'Objetivo e Direto', value: 'Objetivo e Direto' },
+  { label: 'Comercial e Enérgico', value: 'Comercial e Enérgico' },
+]
+
+const tipoOptions = [
+  { label: 'Livre / Conforme Instruções', value: 'Livre' },
+  { label: 'Prestação de Serviços', value: 'Serviço' },
+  { label: 'Venda / Fornecimento de Produtos', value: 'Produto' },
+  { label: 'Parceria / Acordo Comercial', value: 'Comercial' },
+  { label: 'Consultoria / Assessoria', value: 'Consultoria' },
+  { label: 'Tecnologia / Software / TI', value: 'Tecnologia' },
+]
+
+async function fetchAICredits() {
+  try {
+    const { data } = await api.get('/api/ai/credits')
+    aiCredits.value = data
+  } catch (e) {
+    // Silencioso se IA não configurada
+  }
+}
+
+async function gerarModeloComIA() {
+  const briefing = aiBriefing.value.trim()
+  if (!briefing) {
+    toast.add({ severity: 'warn', summary: 'Atenção', detail: 'Informe as instruções para a IA criar o modelo.', life: 3000 })
+    return
+  }
+
+  generatingAI.value = true
+  try {
+    const { data } = await api.post('/api/ai/modelo/gerar', {
+      instrucoes: briefing,
+      tom: aiTom.value,
+      tipo: aiTipo.value !== 'Livre' ? aiTipo.value : null
+    })
+
+    if (data.titulo && (!form.titulo || form.titulo.trim() === '' || !editingModelo.value)) {
+      form.titulo = data.titulo
+    }
+
+    form.conteudo = data.conteudo
+    setEditorContent(data.conteudo)
+
+    if (data.creditos_restantes !== undefined) {
+      aiCredits.value.remaining = data.creditos_restantes
+    }
+
+    toast.add({
+      severity: 'success',
+      summary: 'Modelo Criado!',
+      detail: 'A IA estruturou o modelo e posicionou as variáveis dinâmicas.',
+      life: 4000
+    })
+  } catch (error) {
+    const msg = error.response?.data?.detail || 'Erro ao gerar modelo com IA.'
+    toast.add({ severity: 'error', summary: 'Erro na IA', detail: msg, life: 5000 })
+  } finally {
+    generatingAI.value = false
+  }
+}
 
 async function fetchModelos() {
   loading.value = true
@@ -262,10 +417,14 @@ function openDialog(item = null) {
   if (item) {
     form.titulo = item.titulo
     form.conteudo = item.conteudo
+    aiPanelOpen.value = false
   } else {
     Object.assign(form, defaultForm)
+    aiBriefing.value = ''
+    aiPanelOpen.value = true
   }
   dialogVisible.value = true
+  fetchAICredits()
   nextTick(() => {
     if (editorRef.value) {
       setEditorContent(form.conteudo)
@@ -323,7 +482,10 @@ function formatDate(dateStr) {
   return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 }
 
-onMounted(fetchModelos)
+onMounted(() => {
+  fetchModelos()
+  fetchAICredits()
+})
 </script>
 
 <style scoped>
@@ -478,5 +640,137 @@ onMounted(fetchModelos)
 
 .save-btn:hover {
   background: var(--primary-600) !important;
+}
+
+/* Assistente IA */
+.ai-assistant-card {
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+  transition: all var(--transition-fast);
+}
+
+.ai-assistant-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  background: rgba(168, 85, 247, 0.05);
+}
+
+.ai-assistant-header:hover {
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.ai-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ai-sparkle-icon {
+  font-size: 1.35rem;
+  color: #a855f7;
+}
+
+.ai-heading {
+  display: block;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.ai-subheading {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+
+.ai-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ai-credits-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.ai-assistant-body {
+  padding: 1rem;
+  border-top: 1px solid rgba(168, 85, 247, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ai-field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
+}
+
+.ai-textarea {
+  border-color: rgba(168, 85, 247, 0.3) !important;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.ai-textarea:focus {
+  border-color: #a855f7 !important;
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2) !important;
+}
+
+.ai-options-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.85rem;
+}
+
+.ai-option-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 180px;
+}
+
+.ai-option-item label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ai-select {
+  width: 100%;
+}
+
+.ai-generate-action {
+  margin-left: auto;
+}
+
+.btn-gerar-ia {
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%) !important;
+  border: none !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
+}
+
+.btn-gerar-ia:hover {
+  background: linear-gradient(135deg, #9333ea 0%, #6d28d9 100%) !important;
 }
 </style>

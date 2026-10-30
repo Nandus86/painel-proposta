@@ -1,3 +1,4 @@
+import json
 import uuid
 import pytest
 from sqlalchemy import select
@@ -5,6 +6,7 @@ from sqlalchemy import select
 from app.models.empresa import Empresa
 from app.models.modelo_proposta import ModeloProposta
 from app.services.modelos_padrao import MODELOS_PADRAO, seed_modelos_padrao
+from app.routers.ai import _parse_modelo_json
 
 
 def test_modelos_padrao_definicao():
@@ -61,3 +63,62 @@ async def test_api_list_modelos_auto_seed(conta):
     assert any("serviço" in t or "servico" in t for t in titulos)
     assert any("produto" in t for t in titulos)
     assert any("comercial" in t or "parceria" in t for t in titulos)
+
+
+def test_parse_modelo_json():
+    """Testa extração de JSON gerado pelo LLM em múltiplos formatos."""
+    # Formato com markdown fences
+    md_json = '```json\n{"titulo": "Proposta Solar", "conteudo": "# Solar\\n{{itens}}"}\n```'
+    p1 = _parse_modelo_json(md_json)
+    assert p1["titulo"] == "Proposta Solar"
+    assert "{{itens}}" in p1["conteudo"]
+
+    # Formato JSON puro
+    raw_json = '{"titulo": "Proposta Manutenção", "conteudo": "{{cliente}}"}'
+    p2 = _parse_modelo_json(raw_json)
+    assert p2["titulo"] == "Proposta Manutenção"
+
+    # Fallback para texto plano
+    plain = "# Proposta Especial de Consultoria\nTexto simples com {{valor_total}}"
+    p3 = _parse_modelo_json(plain)
+    assert p3["titulo"] == "Proposta Especial de Consultoria"
+    assert "{{valor_total}}" in p3["conteudo"]
+
+
+@pytest.mark.asyncio
+async def test_api_gerar_modelo_ia_validacao(conta):
+    """Valida erro se o briefing for enviado vazio."""
+    resp = await conta.post("/api/ai/modelo/gerar", json={"instrucoes": "   "})
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_api_gerar_modelo_ia_sucesso(conta, monkeypatch):
+    """Testa geração de modelo via IA e consumo do crédito diário."""
+    from app.routers import ai as ai_router
+
+    class FakeResponse:
+        content = json.dumps({
+            "titulo": "Proposta de TI Gerada por IA",
+            "conteudo": "# Proposta TI\n\n**Cliente:** {{cliente}}\n\n{{itens}}\n\n**Total:** R$ {{valor_total}}"
+        })
+
+    class FakeLLM:
+        async def ainvoke(self, messages):
+            return FakeResponse()
+
+    monkeypatch.setattr(ai_router, "llm_disponivel", lambda: True)
+    monkeypatch.setattr(ai_router, "get_llm", lambda *a, **k: FakeLLM())
+
+    resp = await conta.post("/api/ai/modelo/gerar", json={
+        "instrucoes": "Crie um modelo para serviços de TI e suporte de servidores.",
+        "tom": "Formal e Técnico",
+        "tipo": "Serviço"
+    })
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["titulo"] == "Proposta de TI Gerada por IA"
+    assert "{{cliente}}" in data["conteudo"]
+    assert "{{itens}}" in data["conteudo"]
+    assert "{{valor_total}}" in data["conteudo"]
+    assert "creditos_restantes" in data

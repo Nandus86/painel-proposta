@@ -14,6 +14,10 @@ from app.models.usuario import Usuario
 from app.models.empresa import Empresa
 from app.models.sistema_config import SistemaConfig
 from app.core.security import decrypt_data
+import json
+import re
+from app.schemas.variavel import VARIABLE_CATALOG
+from app.models.variavel_customizada import VariavelCustomizada
 from langchain_core.messages import HumanMessage, SystemMessage
 
 logger = logging.getLogger(__name__)
@@ -239,3 +243,175 @@ async def get_ai_credits(
         "remaining": max(0, limite - empresa.ai_credits_used_today)
     }
 
+
+
+class GenerateModelProposalRequest(BaseModel):
+    instrucoes: str
+    tom: Optional[str] = "Profissional e Persuasivo"
+    tipo: Optional[str] = None
+
+
+class GenerateModelProposalResponse(BaseModel):
+    titulo: str
+    conteudo: str
+    creditos_restantes: int
+
+
+def _parse_modelo_json(raw: str) -> dict:
+    raw = (raw or "").strip()
+    match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(1))
+        except Exception:
+            pass
+
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        try:
+            return json.loads(raw[start : end + 1])
+        except Exception:
+            pass
+
+    linhas = raw.splitlines()
+    titulo = "Modelo de Proposta Personalizado"
+    for linha in linhas:
+        l = linha.strip()
+        if l.startswith("#"):
+            titulo = l.lstrip("#").strip()
+            break
+
+    return {
+        "titulo": titulo,
+        "conteudo": raw
+    }
+
+
+@router.post("/modelo/gerar", response_model=GenerateModelProposalResponse)
+async def gerar_modelo_proposta(
+    data: GenerateModelProposalRequest,
+    current_user: Usuario = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Cria um novo modelo de proposta estruturado com IA a partir do briefing do usuário."""
+    instrucoes = (data.instrucoes or "").strip()
+    if not instrucoes:
+        raise HTTPException(status_code=400, detail="Por favor, forneça as instruções para o modelo de proposta.")
+
+    result = await db.execute(select(Empresa).where(Empresa.id == current_user.empresa_id))
+    empresa = result.scalar_one_or_none()
+    if not empresa:
+        raise HTTPException(status_code=400, detail="Empresa não encontrada.")
+
+    await _reset_diario(db, empresa)
+    limite = await _limite_ia(db, empresa)
+    if empresa.ai_credits_used_today >= limite:
+        raise HTTPException(
+            status_code=429,
+            detail="Limite diário de uso de IA atingido. Tente novamente amanhã ou faça upgrade do plano."
+        )
+
+    config_result = await db.execute(select(SistemaConfig).where(SistemaConfig.id == 1))
+    sistema_config = config_result.scalar_one_or_none()
+
+    openrouter_key = None
+    openrouter_model = "google/gemini-2.5-flash"
+    if sistema_config:
+        if sistema_config.openrouter_key:
+            openrouter_key = decrypt_data(sistema_config.openrouter_key)
+        if sistema_config.openrouter_model:
+            openrouter_model = sistema_config.openrouter_model
+
+    if not openrouter_key and not llm_disponivel():
+        raise HTTPException(
+            status_code=503,
+            detail="A geração com IA ainda não foi configurada pelo administrador do sistema."
+        )
+
+    llm = get_llm(openrouter_key=openrouter_key, openrouter_model=openrouter_model)
+
+    custom_vars_result = await db.execute(
+        select(VariavelCustomizada).where(VariavelCustomizada.empresa_id == empresa.id)
+    )
+    custom_vars = custom_vars_result.scalars().all()
+
+    vars_linhas = [f"- {v.tag}: {v.nome} ({v.descricao})" for v in VARIABLE_CATALOG]
+    for cv in custom_vars:
+        vars_linhas.append(f"- {cv.tag}: {cv.nome} (Variável customizada da sua empresa)")
+    catalogo_str = "\n".join(vars_linhas)
+
+    empresa_nome = empresa.nome_fantasia or empresa.razao_social or "Nossa Empresa"
+
+    prompt = f"""
+Você é um consultor executivo sênior e especialista em engenharia de propostas comerciais de alto impacto.
+Sua missão é criar um MODELO DE PROPOSTA estruturado, persuasivo e elegante em Markdown, com base nas instruções e necessidades do usuário.
+
+=== INSTRUÇÕES E ESPECIFICAÇÕES DO USUÁRIO ===
+{instrucoes}
+
+=== PARÂMETROS ===
+- Tom de Voz: {data.tom or 'Profissional e Persuasivo'}
+- Tipo/Segmento: {data.tipo or 'Livre / Conforme instruções'}
+- Empresa Proponente: {empresa_nome}
+
+=== CATÁLOGO DE VARIÁVEIS DO SISTEMA ===
+{catalogo_str}
+
+=== REGRAS DE CONSTRUÇÃO DO MODELO (OBRIGATÓRIAS) ===
+1. ESTRUTURA DO DOCUMENTO:
+   - Crie uma estrutura profissional em Markdown com seções hierárquicas (use # para título principal, ## para seções, listas com - e negrito para destaque).
+   - Seções sugeridas:
+     * Cabeçalho de identificação (Cliente, Proposta, Emitente, Datas)
+     * 1. Apresentação e Alinhamento Estratégico
+     * 2. Escopo, Metodologia e Solução Proposta (incluindo a tag {{{{itens}}}})
+     * 3. Investimento e Condições de Pagamento (incluindo as tags {{{{valor_total}}}} e {{{{condicoes_pagamento}}}})
+     * 4. Prazos, Garantia e Validade da Proposta (incluindo {{{{validade_dias}}}} ou {{{{data_validade}}}})
+     * 5. Formalização / Aceite e Assinatura (com {{{{vendedor_nome}}}}, {{{{empresa}}}})
+
+2. USO OBRIGATÓRIO DE VARIÁVEIS DINÂMICAS:
+   - Use as variáveis do catálogo acima com a sintaxe exata {{{{tag}}}} para todos os campos que devem ser preenchidos dinamicamente no momento do envio da proposta.
+   - NUNCA invente tags de variáveis que não constem no catálogo acima.
+   - O modelo DEVE conter obrigatoriamente pelo menos as variáveis: {{{{cliente}}}}, {{{{empresa}}}}, {{{{itens}}}}, {{{{valor_total}}}}, {{{{condicoes_pagamento}}}}.
+
+3. FORMATO DE SAÍDA:
+   - Retorne EXCLUSIVAMENTE um objeto JSON válido, sem nenhum texto introdutório ou conclusivo fora dele, exatamente no seguinte formato:
+```json
+{{
+  "titulo": "Título sucinto e profissional para o modelo (ex: Proposta de Consultoria em Segurança da Informação)",
+  "conteudo": "Texto completo do modelo em Markdown com as variáveis inseridas..."
+}}
+```
+"""
+
+    try:
+        messages = [
+            SystemMessage(content="Você é um arquiteto especialista em modelos de propostas comerciais e contratos."),
+            HumanMessage(content=prompt)
+        ]
+        response = await llm.ainvoke(messages)
+    except Exception as e:
+        logger.error("Erro ao gerar modelo com IA (empresa %s): %s", empresa.id, e)
+        raise HTTPException(status_code=502, detail="O serviço de IA não respondeu. Tente novamente em instantes.")
+
+    parsed = _parse_modelo_json(response.content)
+    titulo = str(parsed.get("titulo") or "Modelo de Proposta Personalizado").strip()
+    conteudo = str(parsed.get("conteudo") or response.content).strip()
+
+    consumido = await db.execute(
+        update(Empresa)
+        .where(Empresa.id == empresa.id, Empresa.ai_credits_used_today < limite)
+        .values(ai_credits_used_today=Empresa.ai_credits_used_today + 1)
+    )
+    await db.commit()
+    if consumido.rowcount == 0:
+        raise HTTPException(status_code=429, detail="Limite diário de uso de IA atingido.")
+
+    await db.refresh(empresa)
+    restantes = max(0, limite - empresa.ai_credits_used_today)
+
+    return {
+        "titulo": titulo,
+        "conteudo": conteudo,
+        "creditos_restantes": restantes
+    }
