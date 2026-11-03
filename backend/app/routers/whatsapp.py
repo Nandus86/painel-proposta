@@ -38,11 +38,13 @@ async def whatsapp_conectar(
         qr_data = await connect(empresa, sc)
         await db.commit()
 
+        if qr_data.get("status") == "connected":
+            return {"status": "connected", "qr": None, "paircode": None}
         if qr_data.get("qrcode_base64"):
             return {"status": "connecting", "qr": qr_data["qrcode_base64"], "paircode": qr_data.get("paircode")}
         elif qr_data.get("paircode"):
             return {"status": "connecting", "paircode": qr_data["paircode"], "qr": None}
-        return {"status": "connecting", "qr": None, "paircode": None}
+        return {"status": qr_data.get("status", "connecting"), "qr": None, "paircode": None}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -131,4 +133,3 @@ async def whatsapp_enviar_proposta(
         return {"message": "Mensagem enviada com sucesso"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
