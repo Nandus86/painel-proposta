@@ -694,4 +694,20 @@ onMounted(async () => {
 .font-bold {
   font-weight: 700;
 }
+
+@media (max-width: 768px) {
+  .content-card {
+    padding: 1rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .filters-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search-input,
+  .filter-dropdown {
+    width: 100% !important;
+  }
+}
 </style>

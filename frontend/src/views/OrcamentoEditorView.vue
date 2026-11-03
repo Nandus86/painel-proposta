@@ -44,33 +44,35 @@
         <Button label="Adicionar Item" icon="pi pi-plus" class="p-button-text p-button-sm" @click="addItem" />
       </div>
       
-      <DataTable :value="orcamento.items" class="p-datatable-sm" responsiveLayout="scroll">
-        <Column header="Serviço/Produto">
-          <template #body="{ data, index }">
-            <Select v-model="data.servico_id" :options="servicos" optionLabel="nome" optionValue="id" placeholder="Selecione..." @change="onServicoChange(index)" filter class="w-full" />
-          </template>
-        </Column>
-        <Column header="Qtd" style="width: 100px">
-          <template #body="{ data }">
-            <InputNumber v-model="data.quantidade" :min="1" class="w-full" />
-          </template>
-        </Column>
-        <Column header="Preço Unit." style="width: 150px">
-          <template #body="{ data }">
-            <InputNumber v-model="data.preco_unitario" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
-          </template>
-        </Column>
-        <Column header="Subtotal" style="width: 140px">
-          <template #body="{ data }">
-            <div class="subtotal-cell">{{ formatCurrency(data.subtotal) }}</div>
-          </template>
-        </Column>
-        <Column style="width: 50px">
-          <template #body="{ index }">
-            <Button icon="pi pi-trash" class="p-button-danger p-button-text p-button-rounded" @click="removeItem(index)" />
-          </template>
-        </Column>
-      </DataTable>
+      <div class="table-responsive">
+        <DataTable :value="orcamento.items" class="p-datatable-sm" responsiveLayout="scroll">
+          <Column header="Serviço/Produto">
+            <template #body="{ data, index }">
+              <Select v-model="data.servico_id" :options="servicos" optionLabel="nome" optionValue="id" placeholder="Selecione..." @change="onServicoChange(index)" filter class="w-full" />
+            </template>
+          </Column>
+          <Column header="Qtd" style="width: 100px">
+            <template #body="{ data }">
+              <InputNumber v-model="data.quantidade" :min="1" class="w-full" />
+            </template>
+          </Column>
+          <Column header="Preço Unit." style="width: 150px">
+            <template #body="{ data }">
+              <InputNumber v-model="data.preco_unitario" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
+            </template>
+          </Column>
+          <Column header="Subtotal" style="width: 140px">
+            <template #body="{ data }">
+              <div class="subtotal-cell">{{ formatCurrency(data.subtotal) }}</div>
+            </template>
+          </Column>
+          <Column style="width: 50px">
+            <template #body="{ index }">
+              <Button icon="pi pi-trash" class="p-button-danger p-button-text p-button-rounded" @click="removeItem(index)" />
+            </template>
+          </Column>
+        </DataTable>
+      </div>
     </div>
 
     <!-- Resumo Financeiro at the bottom -->

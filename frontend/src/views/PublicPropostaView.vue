@@ -61,28 +61,30 @@
         <!-- Tabela de Investimento -->
         <div class="mb-6">
           <h3 class="text-xl font-bold text-800 mb-3">Investimento</h3>
-          <table class="doc-table w-full text-left border-collapse">
-            <thead>
-              <tr>
-                <th>Descrição</th>
-                <th class="text-center">Qtd</th>
-                <th class="text-right">Unitário</th>
-                <th class="text-right">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(item, index) in proposta.items" :key="index">
-                <td>{{ item.descricao }}</td>
-                <td class="text-center">{{ item.quantidade }}</td>
-                <td class="text-right">{{ formatCurrency(item.preco_unitario) }}</td>
-                <td class="text-right font-medium">{{ formatCurrency(item.subtotal) }}</td>
-              </tr>
-              <tr class="total-row">
-                <td colspan="3" class="text-right font-bold text-700 uppercase">Total Geral</td>
-                <td class="text-right font-bold text-xl text-primary">{{ formatCurrency(proposta.valor_total) }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="doc-table w-full text-left border-collapse">
+              <thead>
+                <tr>
+                  <th>Descrição</th>
+                  <th class="text-center">Qtd</th>
+                  <th class="text-right">Unitário</th>
+                  <th class="text-right">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in proposta.items" :key="index">
+                  <td>{{ item.descricao }}</td>
+                  <td class="text-center">{{ item.quantidade }}</td>
+                  <td class="text-right">{{ formatCurrency(item.preco_unitario) }}</td>
+                  <td class="text-right font-medium">{{ formatCurrency(item.subtotal) }}</td>
+                </tr>
+                <tr class="total-row">
+                  <td colspan="3" class="text-right font-bold text-700 uppercase">Total Geral</td>
+                  <td class="text-right font-bold text-xl text-primary">{{ formatCurrency(proposta.valor_total) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- Condições de Pagamento -->
@@ -293,6 +295,18 @@ onMounted(() => {
   }
   .doc-content, .doc-footer {
     padding: 24px 20px;
+  }
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .doc-table {
+    min-width: 480px;
+  }
+  .doc-table th, .doc-table td {
+    padding: 8px 10px;
+    font-size: 0.82rem;
   }
 }
 </style>

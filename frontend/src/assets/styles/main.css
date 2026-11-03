@@ -397,3 +397,236 @@ a:hover {
   opacity: 0;
   transform: translateY(-4px);
 }
+
+/* ===== Responsive Tables & Mobile Density ===== */
+.table-card,
+.content-card {
+  max-width: 100%;
+  position: relative;
+  border-radius: var(--border-radius-lg);
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure PrimeVue DataTable containers allow horizontal scroll smoothly */
+.p-datatable {
+  max-width: 100%;
+  position: relative;
+}
+
+.p-datatable .p-datatable-table-container,
+.p-datatable .p-datatable-wrapper,
+.table-responsive {
+  max-width: 100%;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent columns from crunching into unreadable vertical single letters */
+.p-datatable .p-datatable-table {
+  min-width: 680px;
+}
+
+/* More compact tables with fewer columns */
+.p-datatable-sm .p-datatable-table,
+.p-datatable.compact .p-datatable-table,
+.table-responsive table {
+  min-width: 520px;
+}
+
+/* Horizontal scrollbar styling for tables */
+.p-datatable .p-datatable-table-container::-webkit-scrollbar,
+.p-datatable .p-datatable-wrapper::-webkit-scrollbar,
+.table-card::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar {
+  height: 5px;
+}
+
+.p-datatable .p-datatable-table-container::-webkit-scrollbar-track,
+.p-datatable .p-datatable-wrapper::-webkit-scrollbar-track,
+.table-card::-webkit-scrollbar-track,
+.table-responsive::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+}
+
+.p-datatable .p-datatable-table-container::-webkit-scrollbar-thumb,
+.p-datatable .p-datatable-wrapper::-webkit-scrollbar-thumb,
+.table-card::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb {
+  background: var(--surface-400);
+  border-radius: 4px;
+}
+
+.p-datatable .p-datatable-table-container::-webkit-scrollbar-thumb:hover,
+.p-datatable .p-datatable-wrapper::-webkit-scrollbar-thumb:hover,
+.table-card::-webkit-scrollbar-thumb:hover,
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-500);
+}
+
+/* Table header responsiveness */
+.p-datatable-header {
+  padding: 1rem 1.25rem !important;
+}
+
+/* Mobile & Tablet Density - "Zoom out" / compact scale */
+@media (max-width: 960px) {
+  .p-datatable {
+    font-size: 0.85rem;
+  }
+  
+  .p-datatable .p-datatable-thead > tr > th {
+    padding: 0.65rem 0.75rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.55rem 0.75rem !important;
+    font-size: 0.85rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Mobile table density - smaller visual zoom */
+  .p-datatable {
+    font-size: 0.8rem !important;
+  }
+
+  .p-datatable .p-datatable-thead > tr > th {
+    padding: 0.5rem 0.6rem !important;
+    font-size: 0.72rem !important;
+    letter-spacing: 0.3px;
+    white-space: nowrap !important;
+  }
+
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.45rem 0.6rem !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap;
+  }
+
+  /* Header adjustments on mobile */
+  .p-datatable-header,
+  .custom-table .p-datatable-header {
+    padding: 0.75rem !important;
+  }
+
+  .p-datatable-header > div,
+  .custom-table .p-datatable-header > div,
+  .table-header-wrapper {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+  }
+
+  .search-input,
+  .search-wrapper,
+  .p-input-icon-left {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .search-wrapper input,
+  .search-input input {
+    width: 100% !important;
+  }
+
+  /* Action buttons compact size on mobile */
+  .action-buttons,
+  .p-datatable-tbody td .action-buttons,
+  .p-datatable-tbody td .flex.gap-2,
+  .p-datatable-tbody td .flex.gap-1 {
+    display: flex !important;
+    gap: 0.2rem !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .action-buttons .p-button,
+  .p-datatable-tbody td .p-button {
+    width: 1.85rem !important;
+    height: 1.85rem !important;
+    min-width: 1.85rem !important;
+    padding: 0 !important;
+  }
+
+  .action-buttons .p-button .p-button-icon,
+  .p-datatable-tbody td .p-button .p-button-icon {
+    font-size: 0.8rem !important;
+  }
+
+  /* Compact badges & tags on mobile */
+  .status-tag,
+  .status-badge,
+  .type-badge,
+  .category-tag,
+  .p-tag {
+    font-size: 0.65rem !important;
+    padding: 0.15rem 0.4rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .numero-badge {
+    font-size: 0.75rem !important;
+    padding: 0.15rem 0.35rem !important;
+  }
+
+  .cell-primary {
+    font-size: 0.8125rem !important;
+  }
+
+  .cell-secondary {
+    font-size: 0.7rem !important;
+  }
+
+  /* Plain tables (public proposals, budgets, previews) */
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+  }
+
+  .doc-table,
+  .preview-table {
+    min-width: 480px;
+    font-size: 0.8rem !important;
+  }
+
+  .doc-table th,
+  .doc-table td,
+  .preview-table th,
+  .preview-table td {
+    padding: 0.45rem 0.5rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Ultra-small mobile screens */
+  .p-datatable {
+    font-size: 0.75rem !important;
+  }
+
+  .p-datatable .p-datatable-thead > tr > th {
+    padding: 0.4rem 0.45rem !important;
+    font-size: 0.68rem !important;
+  }
+
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.35rem 0.45rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .action-buttons .p-button,
+  .p-datatable-tbody td .p-button {
+    width: 1.7rem !important;
+    height: 1.7rem !important;
+    min-width: 1.7rem !important;
+  }
+
+  .action-buttons .p-button .p-button-icon,
+  .p-datatable-tbody td .p-button .p-button-icon {
+    font-size: 0.75rem !important;
+  }
+}

@@ -378,5 +378,10 @@ onBeforeUnmount(() => {
   .stats-grid {
     grid-template-columns: 1fr 1fr;
   }
+  .table-card {
+    padding: 1rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 </style>

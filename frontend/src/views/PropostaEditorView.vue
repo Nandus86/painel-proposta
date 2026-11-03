@@ -49,33 +49,35 @@
           <Button label="Adicionar Item" icon="pi pi-plus" class="p-button-text p-button-sm" @click="addItem" />
         </div>
         
-        <DataTable :value="proposta.items" class="p-datatable-sm" responsiveLayout="scroll">
-          <Column header="Serviço/Produto">
-            <template #body="{ data, index }">
-              <Select v-model="data.servico_id" :options="servicos" optionLabel="nome" optionValue="id" placeholder="Selecione..." @change="onServicoChange(index)" filter class="w-full" />
-            </template>
-          </Column>
-          <Column header="Qtd" style="width: 100px">
-            <template #body="{ data }">
-              <InputNumber v-model="data.quantidade" :min="1" class="w-full" />
-            </template>
-          </Column>
-          <Column header="Preço Unit." style="width: 150px">
-            <template #body="{ data }">
-              <InputNumber v-model="data.preco_unitario" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
-            </template>
-          </Column>
-          <Column header="Subtotal" style="width: 140px">
-            <template #body="{ data }">
-              <div class="subtotal-cell">{{ formatCurrency(data.subtotal) }}</div>
-            </template>
-          </Column>
-          <Column style="width: 50px">
-            <template #body="{ index }">
-              <Button icon="pi pi-trash" class="p-button-danger p-button-text p-button-rounded" @click="removeItem(index)" />
-            </template>
-          </Column>
-        </DataTable>
+        <div class="table-responsive">
+          <DataTable :value="proposta.items" class="p-datatable-sm" responsiveLayout="scroll">
+            <Column header="Serviço/Produto">
+              <template #body="{ data, index }">
+                <Select v-model="data.servico_id" :options="servicos" optionLabel="nome" optionValue="id" placeholder="Selecione..." @change="onServicoChange(index)" filter class="w-full" />
+              </template>
+            </Column>
+            <Column header="Qtd" style="width: 100px">
+              <template #body="{ data }">
+                <InputNumber v-model="data.quantidade" :min="1" class="w-full" />
+              </template>
+            </Column>
+            <Column header="Preço Unit." style="width: 150px">
+              <template #body="{ data }">
+                <InputNumber v-model="data.preco_unitario" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
+              </template>
+            </Column>
+            <Column header="Subtotal" style="width: 140px">
+              <template #body="{ data }">
+                <div class="subtotal-cell">{{ formatCurrency(data.subtotal) }}</div>
+              </template>
+            </Column>
+            <Column style="width: 50px">
+              <template #body="{ index }">
+                <Button icon="pi pi-trash" class="p-button-danger p-button-text p-button-rounded" @click="removeItem(index)" />
+              </template>
+            </Column>
+          </DataTable>
+        </div>
       </div>
 
       <!-- Resumo Financeiro -->
@@ -216,28 +218,30 @@
                 <!-- Tabela de itens -->
                 <div class="preview-table-section" v-if="proposta.items && proposta.items.length">
                   <h3 class="preview-section-title">Investimento</h3>
-                  <table class="preview-table">
-                    <thead>
-                      <tr>
-                        <th>Descrição</th>
-                        <th class="text-center">Qtd</th>
-                        <th class="text-right">Unitário</th>
-                        <th class="text-right">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="(item, idx) in proposta.items" :key="idx">
-                        <td>{{ item.descricao || '—' }}</td>
-                        <td class="text-center">{{ item.quantidade }}</td>
-                        <td class="text-right">{{ formatCurrency(item.preco_unitario) }}</td>
-                        <td class="text-right fw-medium">{{ formatCurrency(item.subtotal) }}</td>
-                      </tr>
-                      <tr class="preview-total-row">
-                        <td colspan="3" class="text-right">Total Geral</td>
-                        <td class="text-right preview-total-value">{{ formatCurrency(proposta.valor_total) }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div class="table-responsive">
+                    <table class="preview-table">
+                      <thead>
+                        <tr>
+                          <th>Descrição</th>
+                          <th class="text-center">Qtd</th>
+                          <th class="text-right">Unitário</th>
+                          <th class="text-right">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(item, idx) in proposta.items" :key="idx">
+                          <td>{{ item.descricao || '—' }}</td>
+                          <td class="text-center">{{ item.quantidade }}</td>
+                          <td class="text-right">{{ formatCurrency(item.preco_unitario) }}</td>
+                          <td class="text-right fw-medium">{{ formatCurrency(item.subtotal) }}</td>
+                        </tr>
+                        <tr class="preview-total-row">
+                          <td colspan="3" class="text-right">Total Geral</td>
+                          <td class="text-right preview-total-value">{{ formatCurrency(proposta.valor_total) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 <!-- Condições de pagamento -->

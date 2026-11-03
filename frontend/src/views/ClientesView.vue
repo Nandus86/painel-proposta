@@ -352,7 +352,8 @@ onMounted(fetchClientes)
 
 .table-card {
   padding: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .cell-primary {

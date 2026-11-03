@@ -27,14 +27,13 @@
         :value="propostas" 
         :loading="loading" 
         stripedRows 
-        responsiveLayout="stack" 
-        breakpoint="960px"
+        responsiveLayout="scroll" 
         class="custom-table"
       >
         <template #header>
-          <div class="flex justify-content-between align-items-center">
+          <div class="flex justify-content-between align-items-center table-header-wrapper">
             <div class="table-title">Todas as Propostas</div>
-            <span class="p-input-icon-left">
+            <span class="p-input-icon-left search-icon-wrapper">
               <i class="pi pi-search" />
               <InputText v-model="filters.search" placeholder="Pesquisar..." @input="fetchPropostas" class="search-input" />
             </span>
@@ -73,9 +72,9 @@
           </template>
         </Column>
 
-        <Column header="Ações" style="width: 300px">
+        <Column header="Ações" style="width: 240px; min-width: 220px">
           <template #body="{ data }">
-            <div class="flex gap-2">
+            <div class="action-buttons flex gap-1">
               <Button icon="pi pi-eye" severity="info" text rounded @click="previewExistingProposta(data)" v-tooltip="'Visualizar'" />
               <Button icon="pi pi-pencil" severity="secondary" text rounded @click="editProposta(data)" v-tooltip="'Editar'" />
               <Button icon="pi pi-file-pdf" severity="help" text rounded @click="downloadPdf(data)" v-tooltip="'Baixar PDF'" />
@@ -340,7 +339,8 @@ onMounted(() => {
 
 .table-card {
   border-radius: var(--border-radius-lg);
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 0;
 }
 
@@ -357,6 +357,7 @@ onMounted(() => {
 
 .search-input {
   width: 300px;
+  max-width: 100%;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.05);
 }

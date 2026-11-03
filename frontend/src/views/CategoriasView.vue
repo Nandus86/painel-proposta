@@ -206,7 +206,7 @@ onMounted(fetchCategorias)
 .w-full { width: 100%; }
 
 .search-stats { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
-.table-card { padding: 0; overflow: hidden; }
+.table-card { padding: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 .cell-primary { font-weight: 600; font-size: 0.9rem; }
 .cell-secondary { font-size: 0.8rem; color: var(--text-muted); }
