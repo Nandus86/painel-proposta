@@ -8,42 +8,79 @@
       <Button label="Novo Modelo" icon="pi pi-plus" @click="openDialog()" />
     </div>
 
-    <div class="table-card glass mt-4">
-      <DataTable
-        :value="modelos"
-        :loading="loading"
-        stripedRows
-        responsiveLayout="scroll"
-      >
-        <Column field="titulo" header="Título" sortable>
-          <template #body="{ data }">
-            <div class="cell-primary">{{ data.titulo }}</div>
-            <div class="cell-secondary text-truncate" style="max-width: 400px">
-              {{ cleanSnippet(data.conteudo) }}
+    <!-- Desktop Table View -->
+    <div class="desktop-table-container">
+      <div class="table-card glass mt-4">
+        <DataTable
+          :value="modelos"
+          :loading="loading"
+          stripedRows
+          responsiveLayout="scroll"
+        >
+          <Column field="titulo" header="Título" sortable>
+            <template #body="{ data }">
+              <div class="cell-primary">{{ data.titulo }}</div>
+              <div class="cell-secondary text-truncate" style="max-width: 400px">
+                {{ cleanSnippet(data.conteudo) }}
+              </div>
+            </template>
+          </Column>
+          <Column header="Última Atualização" sortable field="updated_at" style="width: 200px">
+            <template #body="{ data }">
+              <span class="text-secondary">{{ formatDate(data.updated_at) }}</span>
+            </template>
+          </Column>
+          <Column header="Ações" style="width: 150px">
+            <template #body="{ data }">
+              <div class="action-buttons">
+                <Button icon="pi pi-pencil" severity="secondary" text rounded size="small" @click="openDialog(data)" />
+                <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="confirmDelete(data)" />
+              </div>
+            </template>
+          </Column>
+          <template #empty>
+            <div class="empty-table" v-if="!loading">
+              <i class="pi pi-copy"></i>
+              <p>Nenhum modelo de proposta cadastrado</p>
+              <Button label="Criar Primeiro Modelo" icon="pi pi-plus" size="small" @click="openDialog()" />
             </div>
           </template>
-        </Column>
-        <Column header="Última Atualização" sortable field="updated_at" style="width: 200px">
-          <template #body="{ data }">
-            <span class="text-secondary">{{ formatDate(data.updated_at) }}</span>
-          </template>
-        </Column>
-        <Column header="Ações" style="width: 150px">
-          <template #body="{ data }">
-            <div class="action-buttons">
-              <Button icon="pi pi-pencil" severity="secondary" text rounded size="small" @click="openDialog(data)" />
-              <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="confirmDelete(data)" />
-            </div>
-          </template>
-        </Column>
-        <template #empty>
-          <div class="empty-table" v-if="!loading">
-            <i class="pi pi-copy"></i>
-            <p>Nenhum modelo de proposta cadastrado</p>
-            <Button label="Criar Primeiro Modelo" icon="pi pi-plus" size="small" @click="openDialog()" />
+        </DataTable>
+      </div>
+    </div>
+
+    <!-- Mobile Cards View -->
+    <div class="mobile-cards-container mt-4">
+      <div v-if="loading" class="mobile-loading-state glass">
+        <i class="pi pi-spin pi-spinner text-2xl text-primary mb-2"></i>
+        <span>Carregando modelos...</span>
+      </div>
+
+      <div v-else-if="!modelos || modelos.length === 0" class="mobile-empty-state glass">
+        <i class="pi pi-copy text-4xl text-muted mb-2"></i>
+        <p>Nenhum modelo de proposta cadastrado.</p>
+        <Button label="Criar Primeiro Modelo" icon="pi pi-plus" size="small" @click="openDialog()" />
+      </div>
+
+      <div v-else class="mobile-card glass" v-for="data in modelos" :key="data.id">
+        <div class="mobile-card-header">
+          <div class="mobile-card-num-title">
+            <span class="mobile-card-title">{{ data.titulo }}</span>
+            <span class="text-xs text-muted" v-if="data.updated_at">Atualizado em {{ formatDate(data.updated_at) }}</span>
           </div>
-        </template>
-      </DataTable>
+        </div>
+
+        <div class="mobile-card-body" v-if="data.conteudo">
+          <div class="text-xs text-secondary" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">
+            {{ cleanSnippet(data.conteudo) }}
+          </div>
+        </div>
+
+        <div class="mobile-card-actions">
+          <Button icon="pi pi-pencil" label="Editar" severity="secondary" text size="small" @click="openDialog(data)" />
+          <Button icon="pi pi-trash" label="Excluir" severity="danger" text size="small" @click="confirmDelete(data)" />
+        </div>
+      </div>
     </div>
 
     <Dialog v-model:visible="dialogVisible" :header="editingModelo ? 'Editar Modelo' : 'Novo Modelo'" modal :style="{ width: '1000px', maxWidth: '95vw' }">

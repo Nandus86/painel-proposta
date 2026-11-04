@@ -43,8 +43,9 @@
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="table-card glass">
+    <!-- Desktop Table View -->
+    <div class="desktop-table-container">
+      <div class="table-card glass">
       <DataTable
         :value="servicos"
         :loading="loading"
@@ -99,6 +100,53 @@
           </div>
         </template>
       </DataTable>
+      </div>
+    </div>
+
+    <!-- Mobile Cards View -->
+    <div class="mobile-cards-container">
+      <div v-if="loading" class="mobile-loading-state glass">
+        <i class="pi pi-spin pi-spinner text-2xl text-primary mb-2"></i>
+        <span>Carregando itens...</span>
+      </div>
+
+      <div v-else-if="!servicos || servicos.length === 0" class="mobile-empty-state glass">
+        <i class="pi pi-box text-4xl text-muted mb-2"></i>
+        <p>Nenhum item cadastrado.</p>
+        <Button label="Cadastrar Item" icon="pi pi-plus" size="small" @click="openDialog()" />
+      </div>
+
+      <div v-else class="mobile-card glass" v-for="data in servicos" :key="data.id">
+        <div class="mobile-card-header">
+          <div class="mobile-card-num-title">
+            <span class="mobile-card-title">{{ data.nome }}</span>
+            <span class="text-xs text-muted" v-if="data.descricao_padrao">{{ data.descricao_padrao }}</span>
+          </div>
+          <span class="status-badge" :class="data.ativo ? 'active' : 'inactive'">
+            {{ data.ativo ? 'Ativo' : 'Inativo' }}
+          </span>
+        </div>
+
+        <div class="mobile-card-body">
+          <div class="mobile-card-info-row">
+            <span class="mobile-card-label"><i class="pi pi-tag"></i> Tipo</span>
+            <span class="type-badge" :class="data.tipo">{{ formatTipo(data.tipo) }}</span>
+          </div>
+          <div class="mobile-card-info-row" v-if="data.categoria">
+            <span class="mobile-card-label"><i class="pi pi-folder"></i> Categoria</span>
+            <span class="category-tag">{{ data.categoria.nome }}</span>
+          </div>
+          <div class="mobile-card-info-row">
+            <span class="mobile-card-label"><i class="pi pi-dollar"></i> Preço Base</span>
+            <span class="mobile-card-price">{{ formatCurrency(data.preco_base) }}</span>
+          </div>
+        </div>
+
+        <div class="mobile-card-actions">
+          <Button icon="pi pi-pencil" label="Editar" severity="secondary" text size="small" @click="openDialog(data)" />
+          <Button icon="pi pi-trash" label="Excluir" severity="danger" text size="small" @click="confirmDelete(data)" />
+        </div>
+      </div>
     </div>
 
     <!-- Pagination -->

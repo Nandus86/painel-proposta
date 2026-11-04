@@ -22,87 +22,156 @@
       </div>
     </div>
 
-    <div class="table-card glass">
-      <DataTable 
-        :value="propostas" 
-        :loading="loading" 
-        stripedRows 
-        responsiveLayout="scroll" 
-        class="custom-table"
-      >
-        <template #header>
-          <div class="flex justify-content-between align-items-center table-header-wrapper">
-            <div class="table-title">Todas as Propostas</div>
-            <span class="p-input-icon-left search-icon-wrapper">
-              <i class="pi pi-search" />
-              <InputText v-model="filters.search" placeholder="Pesquisar..." @input="fetchPropostas" class="search-input" />
-            </span>
-          </div>
-        </template>
-
-        <Column field="numero" header="Nº" sortable style="width: 100px">
-          <template #body="{ data }">
-            <span class="numero-badge">#{{ data.numero }}</span>
-          </template>
-        </Column>
-        
-        <Column field="titulo" header="Título" sortable>
-          <template #body="{ data }">
-            <div class="font-bold text-primary">{{ data.titulo }}</div>
-          </template>
-        </Column>
-        
-        <Column field="cliente_nome" header="Cliente" sortable></Column>
-        
-        <Column field="valor_total" header="Valor Total" sortable>
-          <template #body="{ data }">
-            <span class="font-bold">{{ formatCurrency(data.valor_total) }}</span>
-          </template>
-        </Column>
-        
-        <Column field="status" header="Status" sortable>
-          <template #body="{ data }">
-            <Tag :value="statusLabel('proposta', data.status)" :severity="statusSeverity('proposta', data.status)" class="status-tag" />
-          </template>
-        </Column>
-        
-        <Column field="data_emissao" header="Emissão" sortable>
-          <template #body="{ data }">
-            <div class="text-xs text-muted">{{ formatDate(data.data_emissao) }}</div>
-          </template>
-        </Column>
-
-        <Column header="Ações" style="width: 240px; min-width: 220px">
-          <template #body="{ data }">
-            <div class="action-buttons flex gap-1">
-              <Button icon="pi pi-eye" severity="info" text rounded @click="previewExistingProposta(data)" v-tooltip="'Visualizar'" />
-              <Button icon="pi pi-pencil" severity="secondary" text rounded @click="editProposta(data)" v-tooltip="'Editar'" />
-              <Button icon="pi pi-file-pdf" severity="help" text rounded @click="downloadPdf(data)" v-tooltip="'Baixar PDF'" />
-              <Button icon="pi pi-link" severity="success" text rounded @click="copyMagicLink(data)" v-tooltip="'Copiar Link Mágico'" />
-              <Button icon="pi pi-envelope" severity="secondary" text rounded @click="sendEmail(data)" v-tooltip="'Enviar via E-mail'" />
-              <Button 
-                icon="pi pi-whatsapp" 
-                :severity="whatsappConectado ? 'success' : 'secondary'" 
-                text 
-                rounded 
-                :disabled="!whatsappConectado || sendingWhatsappId === data.id"
-                :loading="sendingWhatsappId === data.id"
-                @click="sendWhatsapp(data)" 
-                v-tooltip="whatsappConectado ? 'Enviar via WhatsApp' : 'WhatsApp não conectado (conecte em Integrações)'" 
-              />
-              <Button icon="pi pi-trash" severity="danger" text rounded @click="confirmDelete(data)" v-tooltip="'Excluir'" />
+    <!-- Desktop Table View -->
+    <div class="desktop-table-container">
+      <div class="table-card glass">
+        <DataTable 
+          :value="propostas" 
+          :loading="loading" 
+          stripedRows 
+          responsiveLayout="scroll" 
+          class="custom-table"
+        >
+          <template #header>
+            <div class="flex justify-content-between align-items-center table-header-wrapper">
+              <div class="table-title">Todas as Propostas</div>
+              <span class="p-input-icon-left search-icon-wrapper">
+                <i class="pi pi-search" />
+                <InputText v-model="filters.search" placeholder="Pesquisar..." @input="fetchPropostas" class="search-input" />
+              </span>
             </div>
           </template>
-        </Column>
-        
-        <template #empty>
-          <div class="empty-state p-5 text-center">
-            <i class="pi pi-file-o text-4xl text-muted mb-3"></i>
-            <p>Nenhuma proposta encontrada.</p>
-            <Button label="Criar Primeira Proposta" icon="pi pi-plus" class="p-button-text" @click="createNew" />
+
+          <Column field="numero" header="Nº" sortable style="width: 100px">
+            <template #body="{ data }">
+              <span class="numero-badge">#{{ data.numero }}</span>
+            </template>
+          </Column>
+          
+          <Column field="titulo" header="Título" sortable>
+            <template #body="{ data }">
+              <div class="font-bold text-primary">{{ data.titulo }}</div>
+            </template>
+          </Column>
+          
+          <Column field="cliente_nome" header="Cliente" sortable></Column>
+          
+          <Column field="valor_total" header="Valor Total" sortable>
+            <template #body="{ data }">
+              <span class="font-bold">{{ formatCurrency(data.valor_total) }}</span>
+            </template>
+          </Column>
+          
+          <Column field="status" header="Status" sortable>
+            <template #body="{ data }">
+              <Tag :value="statusLabel('proposta', data.status)" :severity="statusSeverity('proposta', data.status)" class="status-tag" />
+            </template>
+          </Column>
+          
+          <Column field="data_emissao" header="Emissão" sortable>
+            <template #body="{ data }">
+              <div class="text-xs text-muted">{{ formatDate(data.data_emissao) }}</div>
+            </template>
+          </Column>
+
+          <Column header="Ações" style="width: 240px; min-width: 220px">
+            <template #body="{ data }">
+              <div class="action-buttons flex gap-1">
+                <Button icon="pi pi-eye" severity="info" text rounded @click="previewExistingProposta(data)" v-tooltip="'Visualizar'" />
+                <Button icon="pi pi-pencil" severity="secondary" text rounded @click="editProposta(data)" v-tooltip="'Editar'" />
+                <Button icon="pi pi-file-pdf" severity="help" text rounded @click="downloadPdf(data)" v-tooltip="'Baixar PDF'" />
+                <Button icon="pi pi-link" severity="success" text rounded @click="copyMagicLink(data)" v-tooltip="'Copiar Link Mágico'" />
+                <Button icon="pi pi-envelope" severity="secondary" text rounded @click="sendEmail(data)" v-tooltip="'Enviar via E-mail'" />
+                <Button 
+                  icon="pi pi-whatsapp" 
+                  :severity="whatsappConectado ? 'success' : 'secondary'" 
+                  text 
+                  rounded 
+                  :disabled="!whatsappConectado || sendingWhatsappId === data.id"
+                  :loading="sendingWhatsappId === data.id"
+                  @click="sendWhatsapp(data)" 
+                  v-tooltip="whatsappConectado ? 'Enviar via WhatsApp' : 'WhatsApp não conectado (conecte em Integrações)'" 
+                />
+                <Button icon="pi pi-trash" severity="danger" text rounded @click="confirmDelete(data)" v-tooltip="'Excluir'" />
+              </div>
+            </template>
+          </Column>
+          
+          <template #empty>
+            <div class="empty-state p-5 text-center">
+              <i class="pi pi-file-o text-4xl text-muted mb-3"></i>
+              <p>Nenhuma proposta encontrada.</p>
+              <Button label="Criar Primeira Proposta" icon="pi pi-plus" class="p-button-text" @click="createNew" />
+            </div>
+          </template>
+        </DataTable>
+      </div>
+    </div>
+
+    <!-- Mobile Cards View -->
+    <div class="mobile-cards-container">
+      <div class="mobile-search-bar">
+        <span class="p-input-icon-left w-full">
+          <i class="pi pi-search" />
+          <InputText v-model="filters.search" placeholder="Pesquisar proposta..." @input="fetchPropostas" class="w-full search-input" />
+        </span>
+      </div>
+
+      <div v-if="loading" class="mobile-loading-state glass">
+        <i class="pi pi-spin pi-spinner text-2xl text-primary mb-2"></i>
+        <span>Carregando propostas...</span>
+      </div>
+
+      <div v-else-if="!propostas || propostas.length === 0" class="mobile-empty-state glass">
+        <i class="pi pi-file-o text-4xl text-muted mb-2"></i>
+        <p>Nenhuma proposta encontrada.</p>
+        <Button label="Criar Primeira Proposta" icon="pi pi-plus" size="small" @click="createNew" />
+      </div>
+
+      <div v-else class="mobile-card glass" v-for="data in propostas" :key="data.id">
+        <div class="mobile-card-header">
+          <div class="mobile-card-num-title">
+            <span class="numero-badge">#{{ data.numero }}</span>
+            <span class="mobile-card-title">{{ data.titulo }}</span>
           </div>
-        </template>
-      </DataTable>
+          <Tag :value="statusLabel('proposta', data.status)" :severity="statusSeverity('proposta', data.status)" class="status-tag" />
+        </div>
+
+        <div class="mobile-card-body">
+          <div class="mobile-card-info-row">
+            <span class="mobile-card-label"><i class="pi pi-user"></i> Cliente</span>
+            <span class="mobile-card-value font-medium">{{ data.cliente_nome || '—' }}</span>
+          </div>
+          <div class="mobile-card-info-row">
+            <span class="mobile-card-label"><i class="pi pi-dollar"></i> Valor</span>
+            <span class="mobile-card-value font-bold text-primary">{{ formatCurrency(data.valor_total) }}</span>
+          </div>
+          <div class="mobile-card-info-row">
+            <span class="mobile-card-label"><i class="pi pi-calendar"></i> Emissão</span>
+            <span class="mobile-card-value text-muted text-xs">{{ formatDate(data.data_emissao) }}</span>
+          </div>
+        </div>
+
+        <div class="mobile-card-actions">
+          <Button icon="pi pi-eye" severity="info" text rounded size="small" @click="previewExistingProposta(data)" v-tooltip="'Visualizar'" />
+          <Button icon="pi pi-pencil" severity="secondary" text rounded size="small" @click="editProposta(data)" v-tooltip="'Editar'" />
+          <Button icon="pi pi-file-pdf" severity="help" text rounded size="small" @click="downloadPdf(data)" v-tooltip="'Baixar PDF'" />
+          <Button icon="pi pi-link" severity="success" text rounded size="small" @click="copyMagicLink(data)" v-tooltip="'Copiar Link'" />
+          <Button icon="pi pi-envelope" severity="secondary" text rounded size="small" @click="sendEmail(data)" v-tooltip="'Enviar E-mail'" />
+          <Button 
+            icon="pi pi-whatsapp" 
+            :severity="whatsappConectado ? 'success' : 'secondary'" 
+            text 
+            rounded 
+            size="small"
+            :disabled="!whatsappConectado || sendingWhatsappId === data.id"
+            :loading="sendingWhatsappId === data.id"
+            @click="sendWhatsapp(data)" 
+            v-tooltip="whatsappConectado ? 'WhatsApp' : 'WhatsApp não conectado'" 
+          />
+          <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="confirmDelete(data)" v-tooltip="'Excluir'" />
+        </div>
+      </div>
     </div>
 
 

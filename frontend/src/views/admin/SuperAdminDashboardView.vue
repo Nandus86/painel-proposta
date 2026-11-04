@@ -77,24 +77,48 @@
         <h3>Últimas Empresas Criadas</h3>
         <router-link to="/admin/empresas" class="view-all">Ver todas <i class="pi pi-arrow-right"></i></router-link>
       </div>
-      <DataTable :value="dashboard.ultimas_empresas" stripedRows class="custom-datatable">
-        <Column field="razao_social" header="Empresa" sortable />
-        <Column field="plano" header="Plano" sortable>
-          <template #body="{ data }">
-            <Tag :severity="planoSeverity(data.plano)" :value="data.plano.toUpperCase()" />
-          </template>
-        </Column>
-        <Column field="status_pagamento" header="Pagamento" sortable>
-          <template #body="{ data }">
-            <Tag :severity="pagamentoSeverity(data.status_pagamento)" :value="formatStatus(data.status_pagamento)" />
-          </template>
-        </Column>
-        <Column field="ativo" header="Acesso">
-          <template #body="{ data }">
+
+      <!-- Desktop Table View -->
+      <div class="desktop-table-container">
+        <DataTable :value="dashboard.ultimas_empresas" stripedRows class="custom-datatable">
+          <Column field="razao_social" header="Empresa" sortable />
+          <Column field="plano" header="Plano" sortable>
+            <template #body="{ data }">
+              <Tag :severity="planoSeverity(data.plano)" :value="data.plano.toUpperCase()" />
+            </template>
+          </Column>
+          <Column field="status_pagamento" header="Pagamento" sortable>
+            <template #body="{ data }">
+              <Tag :severity="pagamentoSeverity(data.status_pagamento)" :value="formatStatus(data.status_pagamento)" />
+            </template>
+          </Column>
+          <Column field="ativo" header="Acesso">
+            <template #body="{ data }">
+              <Tag :severity="data.ativo ? 'success' : 'danger'" :value="data.ativo ? 'ATIVO' : 'BLOQUEADO'" />
+            </template>
+          </Column>
+        </DataTable>
+      </div>
+
+      <!-- Mobile Cards View -->
+      <div class="mobile-cards-container">
+        <div class="mobile-card" v-for="data in dashboard.ultimas_empresas" :key="data.id">
+          <div class="mobile-card-header">
+            <span class="mobile-card-title">{{ data.razao_social }}</span>
             <Tag :severity="data.ativo ? 'success' : 'danger'" :value="data.ativo ? 'ATIVO' : 'BLOQUEADO'" />
-          </template>
-        </Column>
-      </DataTable>
+          </div>
+          <div class="mobile-card-body">
+            <div class="mobile-card-info-row">
+              <span class="mobile-card-label"><i class="pi pi-id-card"></i> Plano</span>
+              <Tag :severity="planoSeverity(data.plano)" :value="data.plano.toUpperCase()" />
+            </div>
+            <div class="mobile-card-info-row">
+              <span class="mobile-card-label"><i class="pi pi-credit-card"></i> Pagamento</span>
+              <Tag :severity="pagamentoSeverity(data.status_pagamento)" :value="formatStatus(data.status_pagamento)" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-if="!dashboard" class="loading-state">

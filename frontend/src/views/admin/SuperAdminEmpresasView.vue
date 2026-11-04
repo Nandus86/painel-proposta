@@ -12,94 +12,166 @@
       <span class="filters-count">{{ empresasFiltradas.length }} de {{ empresas.length }}</span>
     </div>
 
-    <div class="content-card glass">
-      <DataTable
-        :value="empresasFiltradas"
-        :paginator="true"
-        :rows="10"
-        dataKey="id"
-        :loading="loading"
-        stripedRows
-        class="custom-datatable"
-      >
-        <template #empty>Nenhuma empresa encontrada.</template>
-        
-        <Column field="logo_url" header="Logo">
-          <template #body="slotProps">
-            <img v-if="slotProps.data.logo_url" :src="backendUrl(slotProps.data.logo_url)" alt="Logo" class="table-logo" />
-            <div v-else class="no-logo-avatar">{{ slotProps.data.razao_social.charAt(0) }}</div>
-          </template>
-        </Column>
-        
-        <Column field="razao_social" header="Empresa" sortable>
-          <template #body="slotProps">
-            <div class="empresa-info">
-              <span class="empresa-name">{{ slotProps.data.razao_social }}</span>
-              <span class="empresa-subinfo">CNPJ: {{ cnpjExibicao(slotProps.data.cnpj) }}</span>
-              <span class="empresa-subinfo" v-if="slotProps.data.email"><i class="pi pi-envelope text-xs"></i> {{ slotProps.data.email }}</span>
-              <span class="empresa-subinfo" v-if="slotProps.data.subdominio"><i class="pi pi-globe text-xs"></i> {{ slotProps.data.subdominio }}.{{ ROOT_DOMAIN }}</span>
-              <span class="empresa-subinfo" v-if="slotProps.data.dominio_personalizado"><i class="pi pi-link text-xs"></i> {{ slotProps.data.dominio_personalizado }}</span>
-            </div>
-          </template>
-        </Column>
-        
-        <Column field="plano" header="Plano" sortable>
-          <template #body="slotProps">
-            <div class="flex flex-column gap-1 align-items-start">
-              <Tag :severity="getPlanoSeverity(slotProps.data.plano)" :value="planoNome(slotProps.data.plano)" />
-              <Tag
-                v-if="slotProps.data.plano_solicitado"
-                severity="warn"
-                :value="`Solicitou: ${planoNome(slotProps.data.plano_solicitado)}`"
-                class="cursor-pointer"
-                v-tooltip.top="'Clique para analisar a solicitação'"
-                @click="openEditDialog(slotProps.data)"
-              />
-            </div>
-          </template>
-        </Column>
+    <!-- Desktop Table View -->
+    <div class="desktop-table-container">
+      <div class="content-card glass">
+        <DataTable
+          :value="empresasFiltradas"
+          :paginator="true"
+          :rows="10"
+          dataKey="id"
+          :loading="loading"
+          stripedRows
+          class="custom-datatable"
+        >
+          <template #empty>Nenhuma empresa encontrada.</template>
+          
+          <Column field="logo_url" header="Logo">
+            <template #body="slotProps">
+              <img v-if="slotProps.data.logo_url" :src="backendUrl(slotProps.data.logo_url)" alt="Logo" class="table-logo" />
+              <div v-else class="no-logo-avatar">{{ slotProps.data.razao_social.charAt(0) }}</div>
+            </template>
+          </Column>
+          
+          <Column field="razao_social" header="Empresa" sortable>
+            <template #body="slotProps">
+              <div class="empresa-info">
+                <span class="empresa-name">{{ slotProps.data.razao_social }}</span>
+                <span class="empresa-subinfo">CNPJ: {{ cnpjExibicao(slotProps.data.cnpj) }}</span>
+                <span class="empresa-subinfo" v-if="slotProps.data.email"><i class="pi pi-envelope text-xs"></i> {{ slotProps.data.email }}</span>
+                <span class="empresa-subinfo" v-if="slotProps.data.subdominio"><i class="pi pi-globe text-xs"></i> {{ slotProps.data.subdominio }}.{{ ROOT_DOMAIN }}</span>
+                <span class="empresa-subinfo" v-if="slotProps.data.dominio_personalizado"><i class="pi pi-link text-xs"></i> {{ slotProps.data.dominio_personalizado }}</span>
+              </div>
+            </template>
+          </Column>
+          
+          <Column field="plano" header="Plano" sortable>
+            <template #body="slotProps">
+              <div class="flex flex-column gap-1 align-items-start">
+                <Tag :severity="getPlanoSeverity(slotProps.data.plano)" :value="planoNome(slotProps.data.plano)" />
+                <Tag
+                  v-if="slotProps.data.plano_solicitado"
+                  severity="warn"
+                  :value="`Solicitou: ${planoNome(slotProps.data.plano_solicitado)}`"
+                  class="cursor-pointer"
+                  v-tooltip.top="'Clique para analisar a solicitação'"
+                  @click="openEditDialog(slotProps.data)"
+                />
+              </div>
+            </template>
+          </Column>
 
-        <Column field="status_pagamento" header="Pagamento" sortable>
-          <template #body="slotProps">
-            <Tag :severity="getPagamentoSeverity(slotProps.data.status_pagamento)" :value="formatStatus(slotProps.data.status_pagamento)" />
-          </template>
-        </Column>
+          <Column field="status_pagamento" header="Pagamento" sortable>
+            <template #body="slotProps">
+              <Tag :severity="getPagamentoSeverity(slotProps.data.status_pagamento)" :value="formatStatus(slotProps.data.status_pagamento)" />
+            </template>
+          </Column>
 
-        <Column field="ativo" header="Acesso" sortable>
-          <template #body="slotProps">
-            <Tag :severity="slotProps.data.ativo ? 'success' : 'danger'" :value="slotProps.data.ativo ? 'ATIVO' : 'BLOQUEADO'" />
-          </template>
-        </Column>
-        
-        <Column header="Ações Rápidas" :exportable="false" style="min-width: 10rem">
-          <template #body="slotProps">
-            <div class="action-buttons">
-              <Button
-                v-if="slotProps.data.ativo"
-                icon="pi pi-lock"
-                text
-                rounded
-                severity="danger"
-                size="small"
-                v-tooltip.top="'Bloquear'"
-                @click="quickBlock(slotProps.data)"
-              />
-              <Button
-                v-else
-                icon="pi pi-unlock"
-                text
-                rounded
-                severity="success"
-                size="small"
-                v-tooltip.top="'Desbloquear'"
-                @click="quickUnblock(slotProps.data)"
-              />
-              <Button icon="pi pi-info-circle" text rounded size="small" v-tooltip.top="'Detalhes'" @click="openDetailModal(slotProps.data)" />
-              <Button icon="pi pi-cog" text rounded size="small" v-tooltip.top="'Gerenciar'" @click="openEditDialog(slotProps.data)" />
+          <Column field="ativo" header="Acesso" sortable>
+            <template #body="slotProps">
+              <Tag :severity="slotProps.data.ativo ? 'success' : 'danger'" :value="slotProps.data.ativo ? 'ATIVO' : 'BLOQUEADO'" />
+            </template>
+          </Column>
+          
+          <Column header="Ações Rápidas" :exportable="false" style="min-width: 10rem">
+            <template #body="slotProps">
+              <div class="action-buttons">
+                <Button
+                  v-if="slotProps.data.ativo"
+                  icon="pi pi-lock"
+                  text
+                  rounded
+                  severity="danger"
+                  size="small"
+                  v-tooltip.top="'Bloquear'"
+                  @click="quickBlock(slotProps.data)"
+                />
+                <Button
+                  v-else
+                  icon="pi pi-unlock"
+                  text
+                  rounded
+                  severity="success"
+                  size="small"
+                  v-tooltip.top="'Desbloquear'"
+                  @click="quickUnblock(slotProps.data)"
+                />
+                <Button icon="pi pi-info-circle" text rounded size="small" v-tooltip.top="'Detalhes'" @click="openDetailModal(slotProps.data)" />
+                <Button icon="pi pi-cog" text rounded size="small" v-tooltip.top="'Gerenciar'" @click="openEditDialog(slotProps.data)" />
+              </div>
+            </template>
+          </Column>
+        </DataTable>
+      </div>
+    </div>
+
+    <!-- Mobile Cards View -->
+    <div class="mobile-cards-container">
+      <div v-if="loading" class="mobile-loading-state glass">
+        <i class="pi pi-spin pi-spinner text-2xl text-primary mb-2"></i>
+        <span>Carregando empresas...</span>
+      </div>
+
+      <div v-else-if="!empresasFiltradas || empresasFiltradas.length === 0" class="mobile-empty-state glass">
+        <i class="pi pi-building text-4xl text-muted mb-2"></i>
+        <p>Nenhuma empresa encontrada.</p>
+      </div>
+
+      <div v-else class="mobile-card glass" v-for="data in empresasFiltradas" :key="data.id">
+        <div class="mobile-card-header">
+          <div class="flex align-items-center gap-2">
+            <img v-if="data.logo_url" :src="backendUrl(data.logo_url)" alt="Logo" class="table-logo" />
+            <div v-else class="no-logo-avatar">{{ data.razao_social.charAt(0) }}</div>
+            <div class="mobile-card-num-title">
+              <span class="mobile-card-title">{{ data.razao_social }}</span>
+              <span class="text-xs text-muted">CNPJ: {{ cnpjExibicao(data.cnpj) }}</span>
             </div>
-          </template>
-        </Column>
-      </DataTable>
+          </div>
+          <Tag :severity="data.ativo ? 'success' : 'danger'" :value="data.ativo ? 'ATIVO' : 'BLOQUEADO'" />
+        </div>
+
+        <div class="mobile-card-body">
+          <div class="mobile-card-info-row">
+            <span class="mobile-card-label"><i class="pi pi-id-card"></i> Plano</span>
+            <Tag :severity="getPlanoSeverity(data.plano)" :value="planoNome(data.plano)" />
+          </div>
+          <div class="mobile-card-info-row">
+            <span class="mobile-card-label"><i class="pi pi-credit-card"></i> Pagamento</span>
+            <Tag :severity="getPagamentoSeverity(data.status_pagamento)" :value="formatStatus(data.status_pagamento)" />
+          </div>
+          <div class="mobile-card-info-row" v-if="data.email">
+            <span class="mobile-card-label"><i class="pi pi-envelope"></i> Email</span>
+            <span class="mobile-card-value text-xs">{{ data.email }}</span>
+          </div>
+          <div class="mobile-card-info-row" v-if="data.subdominio">
+            <span class="mobile-card-label"><i class="pi pi-globe"></i> Subdomínio</span>
+            <span class="mobile-card-value text-xs">{{ data.subdominio }}.{{ ROOT_DOMAIN }}</span>
+          </div>
+        </div>
+
+        <div class="mobile-card-actions">
+          <Button
+            v-if="data.ativo"
+            icon="pi pi-lock"
+            label="Bloquear"
+            text
+            severity="danger"
+            size="small"
+            @click="quickBlock(data)"
+          />
+          <Button
+            v-else
+            icon="pi pi-unlock"
+            label="Desbloquear"
+            text
+            severity="success"
+            size="small"
+            @click="quickUnblock(data)"
+          />
+          <Button icon="pi pi-info-circle" label="Detalhes" text size="small" @click="openDetailModal(data)" />
+          <Button icon="pi pi-cog" label="Gerenciar" text size="small" @click="openEditDialog(data)" />
+        </div>
+      </div>
     </div>
 
     <!-- Detail Modal -->

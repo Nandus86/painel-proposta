@@ -19,63 +19,113 @@
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="table-card glass">
-      <DataTable
-        :value="clientes"
-        :loading="loading"
-        stripedRows
-        responsiveLayout="scroll"
-      >
-        <Column field="razao_social" header="Cliente" sortable>
-          <template #body="{ data }">
-            <div>
-              <div class="cell-primary">{{ data.nome_fantasia || data.razao_social }}</div>
-              <div class="cell-secondary" v-if="data.nome_fantasia">{{ data.razao_social }}</div>
-            </div>
-          </template>
-        </Column>
-        <Column header="Documento">
-          <template #body="{ data }">
-            <span class="mono">{{ data.cnpj || data.cpf || '—' }}</span>
-          </template>
-        </Column>
-        <Column field="contato_nome" header="Contato">
-          <template #body="{ data }">
-            <div v-if="data.contato_nome">
-              <div class="cell-primary">{{ data.contato_nome }}</div>
-              <div class="cell-secondary">{{ data.contato_cargo }}</div>
-            </div>
-            <span v-else class="text-muted">—</span>
-          </template>
-        </Column>
-        <Column field="email" header="Email">
-          <template #body="{ data }">
-            <span>{{ data.email || '—' }}</span>
-          </template>
-        </Column>
-        <Column field="cidade" header="Cidade">
-          <template #body="{ data }">
-            <span>{{ data.cidade ? `${data.cidade}/${data.estado}` : '—' }}</span>
-          </template>
-        </Column>
-        <Column header="Ações" style="width: 120px">
-          <template #body="{ data }">
-            <div class="action-buttons">
-              <Button icon="pi pi-pencil" severity="secondary" text rounded size="small" @click="openDialog(data)" />
-              <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="confirmDelete(data)" />
-            </div>
-          </template>
-        </Column>
+    <!-- Desktop Table View -->
+    <div class="desktop-table-container">
+      <div class="table-card glass">
+        <DataTable
+          :value="clientes"
+          :loading="loading"
+          stripedRows
+          responsiveLayout="scroll"
+        >
+          <Column field="razao_social" header="Cliente" sortable>
+            <template #body="{ data }">
+              <div>
+                <div class="cell-primary">{{ data.nome_fantasia || data.razao_social }}</div>
+                <div class="cell-secondary" v-if="data.nome_fantasia">{{ data.razao_social }}</div>
+              </div>
+            </template>
+          </Column>
+          <Column header="Documento">
+            <template #body="{ data }">
+              <span class="mono">{{ data.cnpj || data.cpf || '—' }}</span>
+            </template>
+          </Column>
+          <Column field="contato_nome" header="Contato">
+            <template #body="{ data }">
+              <div v-if="data.contato_nome">
+                <div class="cell-primary">{{ data.contato_nome }}</div>
+                <div class="cell-secondary">{{ data.contato_cargo }}</div>
+              </div>
+              <span v-else class="text-muted">—</span>
+            </template>
+          </Column>
+          <Column field="email" header="Email">
+            <template #body="{ data }">
+              <span>{{ data.email || '—' }}</span>
+            </template>
+          </Column>
+          <Column field="cidade" header="Cidade">
+            <template #body="{ data }">
+              <span>{{ data.cidade ? `${data.cidade}/${data.estado}` : '—' }}</span>
+            </template>
+          </Column>
+          <Column header="Ações" style="width: 120px">
+            <template #body="{ data }">
+              <div class="action-buttons">
+                <Button icon="pi pi-pencil" severity="secondary" text rounded size="small" @click="openDialog(data)" />
+                <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="confirmDelete(data)" />
+              </div>
+            </template>
+          </Column>
 
-        <template #empty>
-          <div class="empty-table">
-            <i class="pi pi-address-book"></i>
-            <p>Nenhum cliente encontrado</p>
-            <Button label="Cadastrar Primeiro Cliente" icon="pi pi-plus" size="small" @click="openDialog()" />
+          <template #empty>
+            <div class="empty-table">
+              <i class="pi pi-address-book"></i>
+              <p>Nenhum cliente encontrado</p>
+              <Button label="Cadastrar Primeiro Cliente" icon="pi pi-plus" size="small" @click="openDialog()" />
+            </div>
+          </template>
+        </DataTable>
+      </div>
+    </div>
+
+    <!-- Mobile Cards View -->
+    <div class="mobile-cards-container">
+      <div v-if="loading" class="mobile-loading-state glass">
+        <i class="pi pi-spin pi-spinner text-2xl text-primary mb-2"></i>
+        <span>Carregando clientes...</span>
+      </div>
+
+      <div v-else-if="!clientes || clientes.length === 0" class="mobile-empty-state glass">
+        <i class="pi pi-address-book text-4xl text-muted mb-2"></i>
+        <p>Nenhum cliente encontrado.</p>
+        <Button label="Cadastrar Cliente" icon="pi pi-plus" size="small" @click="openDialog()" />
+      </div>
+
+      <div v-else class="mobile-card glass" v-for="data in clientes" :key="data.id">
+        <div class="mobile-card-header">
+          <div class="mobile-card-num-title">
+            <span class="mobile-card-title">{{ data.nome_fantasia || data.razao_social }}</span>
+            <span class="text-xs text-muted" v-if="data.nome_fantasia && data.nome_fantasia !== data.razao_social">{{ data.razao_social }}</span>
           </div>
-        </template>
-      </DataTable>
+          <span class="mono text-xs">{{ data.cnpj || data.cpf || '' }}</span>
+        </div>
+
+        <div class="mobile-card-body">
+          <div class="mobile-card-info-row" v-if="data.contato_nome">
+            <span class="mobile-card-label"><i class="pi pi-user"></i> Contato</span>
+            <span class="mobile-card-value font-medium">{{ data.contato_nome }} <span v-if="data.contato_cargo" class="text-muted">({{ data.contato_cargo }})</span></span>
+          </div>
+          <div class="mobile-card-info-row" v-if="data.email">
+            <span class="mobile-card-label"><i class="pi pi-envelope"></i> Email</span>
+            <span class="mobile-card-value">{{ data.email }}</span>
+          </div>
+          <div class="mobile-card-info-row" v-if="data.telefone">
+            <span class="mobile-card-label"><i class="pi pi-phone"></i> Tel</span>
+            <span class="mobile-card-value">{{ data.telefone }}</span>
+          </div>
+          <div class="mobile-card-info-row" v-if="data.cidade || data.estado">
+            <span class="mobile-card-label"><i class="pi pi-map-marker"></i> Cidade</span>
+            <span class="mobile-card-value">{{ data.cidade ? `${data.cidade}/${data.estado}` : data.estado }}</span>
+          </div>
+        </div>
+
+        <div class="mobile-card-actions">
+          <Button icon="pi pi-pencil" label="Editar" severity="secondary" text size="small" @click="openDialog(data)" />
+          <Button icon="pi pi-trash" label="Excluir" severity="danger" text size="small" @click="confirmDelete(data)" />
+        </div>
+      </div>
     </div>
 
     <!-- Pagination -->

@@ -95,8 +95,9 @@
       </div>
     </div>
 
-    <!-- Table Card -->
-    <div class="table-card glass">
+    <!-- Desktop Table View -->
+    <div class="desktop-table-container">
+      <div class="table-card glass">
       <DataTable
         :value="usuarios"
         :loading="loading"
@@ -224,6 +225,91 @@
           </div>
         </template>
       </DataTable>
+      </div>
+    </div>
+
+    <!-- Mobile Cards View -->
+    <div class="mobile-cards-container">
+      <div v-if="loading" class="mobile-loading-state glass">
+        <i class="pi pi-spin pi-spinner text-2xl text-primary mb-2"></i>
+        <span>Carregando membros...</span>
+      </div>
+
+      <div v-else-if="!usuarios || usuarios.length === 0" class="mobile-empty-state glass">
+        <i class="pi pi-users text-4xl text-muted mb-2"></i>
+        <h4>Nenhum membro encontrado</h4>
+        <p class="text-xs">Tente ajustar os filtros ou adicione um novo usuário.</p>
+        <Button
+          v-if="quota?.pode_adicionar"
+          label="Adicionar Primeiro Membro"
+          icon="pi pi-plus"
+          size="small"
+          class="mt-2"
+          @click="openDialog()"
+        />
+      </div>
+
+      <div v-else class="mobile-card glass" v-for="data in usuarios" :key="data.id">
+        <div class="mobile-card-header">
+          <div class="user-cell">
+            <div class="user-avatar" :style="{ background: getAvatarGradient(data.nome) }">
+              {{ getInitials(data.nome) }}
+            </div>
+            <div class="user-details">
+              <div class="user-name-line">
+                <span class="user-name font-bold">{{ data.nome }}</span>
+                <span v-if="data.id === authStore.user?.id" class="me-badge">Você</span>
+              </div>
+              <div class="user-email text-xs text-muted">{{ data.email }}</div>
+            </div>
+          </div>
+          <button
+            class="status-toggle-btn"
+            :class="data.ativo ? 'active' : 'inactive'"
+            @click="toggleUserStatus(data)"
+            :disabled="data.id === authStore.user?.id"
+            :title="data.id === authStore.user?.id ? 'Você não pode desativar seu próprio usuário' : (data.ativo ? 'Clique para desativar' : 'Clique para ativar')"
+          >
+            <span class="status-dot"></span>
+            <span>{{ data.ativo ? 'Ativo' : 'Inativo' }}</span>
+          </button>
+        </div>
+
+        <div class="mobile-card-body">
+          <div class="mobile-card-info-row">
+            <span class="mobile-card-label"><i class="pi pi-shield"></i> Permissão</span>
+            <span class="role-badge" :class="data.role">
+              <i :class="getRoleIcon(data.role)"></i>
+              {{ roleLabels[data.role] || data.role }}
+            </span>
+          </div>
+          <div class="mobile-card-info-row" v-if="data.cargo">
+            <span class="mobile-card-label"><i class="pi pi-briefcase"></i> Cargo</span>
+            <span class="mobile-card-value">{{ data.cargo }}</span>
+          </div>
+          <div class="mobile-card-info-row" v-if="data.telefone">
+            <span class="mobile-card-label"><i class="pi pi-phone"></i> Tel</span>
+            <span class="mobile-card-value">{{ data.telefone }}</span>
+          </div>
+          <div class="mobile-card-info-row" v-if="data.ultimo_login">
+            <span class="mobile-card-label"><i class="pi pi-history"></i> Último Acesso</span>
+            <span class="mobile-card-value text-muted text-xs">{{ formatRelativeTime(data.ultimo_login) }}</span>
+          </div>
+        </div>
+
+        <div class="mobile-card-actions">
+          <Button icon="pi pi-pencil" label="Editar" severity="secondary" text size="small" @click="openDialog(data)" />
+          <Button
+            icon="pi pi-trash"
+            label="Desativar"
+            severity="danger"
+            text
+            size="small"
+            @click="confirmDelete(data)"
+            :disabled="data.id === authStore.user?.id"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- User Form Dialog -->

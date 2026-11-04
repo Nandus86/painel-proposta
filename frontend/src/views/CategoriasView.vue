@@ -19,44 +19,77 @@
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="table-card glass">
-      <DataTable
-        :value="categorias"
-        :loading="loading"
-        stripedRows
-        responsiveLayout="scroll"
-      >
-        <Column field="nome" header="Nome" sortable>
-          <template #body="{ data }">
-            <div class="cell-primary">{{ data.nome }}</div>
-            <div class="cell-secondary text-truncate" style="max-width: 300px" v-if="data.descricao">{{ data.descricao }}</div>
-          </template>
-        </Column>
-        <Column field="ativa" header="Status">
-          <template #body="{ data }">
-            <span class="status-badge" :class="data.ativa ? 'active' : 'inactive'">
-              {{ data.ativa ? 'Ativa' : 'Inativa' }}
-            </span>
-          </template>
-        </Column>
-        <Column header="Ações" style="width: 120px">
-          <template #body="{ data }">
-            <div class="action-buttons">
-              <Button icon="pi pi-pencil" severity="secondary" text rounded size="small" @click="openDialog(data)" />
-              <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="confirmDelete(data)" />
+    <!-- Desktop Table View -->
+    <div class="desktop-table-container">
+      <div class="table-card glass">
+        <DataTable
+          :value="categorias"
+          :loading="loading"
+          stripedRows
+          responsiveLayout="scroll"
+        >
+          <Column field="nome" header="Nome" sortable>
+            <template #body="{ data }">
+              <div class="cell-primary">{{ data.nome }}</div>
+              <div class="cell-secondary text-truncate" style="max-width: 300px" v-if="data.descricao">{{ data.descricao }}</div>
+            </template>
+          </Column>
+          <Column field="ativa" header="Status">
+            <template #body="{ data }">
+              <span class="status-badge" :class="data.ativa ? 'active' : 'inactive'">
+                {{ data.ativa ? 'Ativa' : 'Inativa' }}
+              </span>
+            </template>
+          </Column>
+          <Column header="Ações" style="width: 120px">
+            <template #body="{ data }">
+              <div class="action-buttons">
+                <Button icon="pi pi-pencil" severity="secondary" text rounded size="small" @click="openDialog(data)" />
+                <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="confirmDelete(data)" />
+              </div>
+            </template>
+          </Column>
+
+          <template #empty>
+            <div class="empty-table">
+              <i class="pi pi-tags"></i>
+              <p>Nenhuma categoria encontrada</p>
+              <Button label="Criar Primeira Categoria" icon="pi pi-plus" size="small" @click="openDialog()" />
             </div>
           </template>
-        </Column>
+        </DataTable>
+      </div>
+    </div>
 
-        <template #empty>
-          <div class="empty-table">
-            <i class="pi pi-tags"></i>
-            <p>Nenhuma categoria encontrada</p>
-            <Button label="Criar Primeira Categoria" icon="pi pi-plus" size="small" @click="openDialog()" />
+    <!-- Mobile Cards View -->
+    <div class="mobile-cards-container">
+      <div v-if="loading" class="mobile-loading-state glass">
+        <i class="pi pi-spin pi-spinner text-2xl text-primary mb-2"></i>
+        <span>Carregando categorias...</span>
+      </div>
+
+      <div v-else-if="!categorias || categorias.length === 0" class="mobile-empty-state glass">
+        <i class="pi pi-tags text-4xl text-muted mb-2"></i>
+        <p>Nenhuma categoria encontrada.</p>
+        <Button label="Criar Categoria" icon="pi pi-plus" size="small" @click="openDialog()" />
+      </div>
+
+      <div v-else class="mobile-card glass" v-for="data in categorias" :key="data.id">
+        <div class="mobile-card-header">
+          <div class="mobile-card-num-title">
+            <span class="mobile-card-title">{{ data.nome }}</span>
+            <span class="text-xs text-muted" v-if="data.descricao">{{ data.descricao }}</span>
           </div>
-        </template>
-      </DataTable>
+          <span class="status-badge" :class="data.ativa ? 'active' : 'inactive'">
+            {{ data.ativa ? 'Ativa' : 'Inativa' }}
+          </span>
+        </div>
+
+        <div class="mobile-card-actions">
+          <Button icon="pi pi-pencil" label="Editar" severity="secondary" text size="small" @click="openDialog(data)" />
+          <Button icon="pi pi-trash" label="Excluir" severity="danger" text size="small" @click="confirmDelete(data)" />
+        </div>
+      </div>
     </div>
 
     <!-- Pagination -->
